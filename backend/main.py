@@ -7,6 +7,7 @@
 """
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 import os
@@ -17,7 +18,7 @@ import requests
 # 加载环境变量（无论从哪个目录启动，都定位到 backend/.env）
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
-app = FastAPI(title="智汇研途 API", version="1.0.0")
+app = FastAPI(title="智汇研途 API", version="1.0.0", docs_url=None)
 
 # 允许跨域，前端页面可直接调用
 app.add_middleware(
@@ -30,6 +31,21 @@ app.add_middleware(
 
 DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
 DEFAULT_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+
+
+# ==================== 自定义 /docs（改用国内 CDN，避免 jsdelivr 被墙导致页面空白） ====================
+_SWAGGER_JS = "https://cdn.bootcdn.net/ajax/libs/swagger-ui/5.0.0/swagger-ui-bundle.min.js"
+_SWAGGER_CSS = "https://cdn.bootcdn.net/ajax/libs/swagger-ui/5.0.0/swagger-ui.min.css"
+
+
+@app.get("/docs", include_in_schema=False)
+def custom_docs():
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=app.title + " - Swagger UI",
+        swagger_js_url=_SWAGGER_JS,
+        swagger_css_url=_SWAGGER_CSS,
+    )
 
 
 # ==================== 请求/响应模型 ====================
