@@ -166,12 +166,14 @@ def rag_ingest(req: IngestRequest):
     """写入一篇文献片段到向量库。"""
     col = _get_collection()
     doc_id = req.doc_id or hashlib.md5(req.text.encode("utf-8")).hexdigest()[:16]
-    col.upsert(
-        ids=[doc_id],
-        documents=[req.text],
-        embeddings=[_hash_embed(req.text)],
-        metadatas=[req.metadata or {}],
-    )
+    kwargs = {
+        "ids": [doc_id],
+        "documents": [req.text],
+        "embeddings": [_hash_embed(req.text)],
+    }
+    if req.metadata:  # chromadb 1.x 要求 metadata 非空，未传时不带该参数
+        kwargs["metadatas"] = [req.metadata]
+    col.upsert(**kwargs)
     return {"ok": True, "doc_id": doc_id}
 
 
