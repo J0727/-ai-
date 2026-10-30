@@ -35,6 +35,7 @@
 │   ├── main.py               # FastAPI 后端服务（DeepSeek API + RAG 检索）
 │   └── .env.example          # 环境变量示例
 └── docs/
+    ├── 技术文档.docx / 技术文档.pdf   # 正式技术文档（PDF ≤ 30 页）
     ├── 技术报告大纲.md
     ├── 演示视频脚本.md
     └── 测试报告.md
