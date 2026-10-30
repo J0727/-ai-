@@ -112,7 +112,10 @@ def chat(request: ChatRequest):
 # ==================== RAG 文献检索（ChromaDB 向量库） ====================
 # 使用确定性哈希嵌入，无需外部 Embedding 模型即可离线演示向量检索流程，
 # 可替换为真实 Embedding（如 DeepSeek/OpenAI 嵌入接口）以获得更好效果。
-import chromadb  # noqa: E402
+try:
+    import chromadb  # noqa: E402
+except ImportError:  # 未安装 chromadb 时 RAG 接口降级，不影响 /api/chat 正常对话
+    chromadb = None
 
 _chroma_client = None
 _collection = None
@@ -133,6 +136,11 @@ def _hash_embed(text: str, dim: int = 256) -> list[float]:
 
 def _get_collection():
     global _chroma_client, _collection
+    if chromadb is None:
+        raise HTTPException(
+            status_code=501,
+            detail="未安装 chromadb，RAG 接口不可用；请执行 pip install chromadb 后重启服务",
+        )
     if _collection is None:
         try:
             _chroma_client = chromadb.PersistentClient(path="./chroma_data")
