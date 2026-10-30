@@ -31,9 +31,20 @@
         .agent-step.completed { border-color: #10b981 !important; background: #f0fdf4; }
         .agent-step .step-bar { transition: width 0.6s ease; }
 
-        /* 设置弹窗过渡 */
-        #settingsModal { transition: opacity 0.2s ease; }
-        #settingsModal.hidden { display: none; }
+        /* 打字光标加载动画 */
+        .typing-dot {
+            width: 6px; height: 6px; border-radius: 9999px;
+            background: #94a3b8;
+            animation: typing-bounce 1.2s infinite ease-in-out;
+        }
+        @keyframes typing-bounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-4px); opacity: 1; }
+        }
+
+        /* Markdown 渲染样式 */
+        .markdown-body strong { color: #7c3aed; font-weight: 600; }
+        .markdown-body code { background: #f1f5f9; color: #7c3aed; padding: 1px 5px; border-radius: 4px; font-size: 0.85em; }
     </style>
 </head>
 <body class="text-slate-800 h-screen flex flex-col overflow-hidden">
@@ -50,9 +61,14 @@
                 <p class="text-xs text-slate-500">基于多智能体协作的科研辅助系统</p>
             </div>
         </div>
-        <div class="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full">
-            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span class="text-xs font-medium text-slate-600">DeepSeek-V4-Pro Ready</span>
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full">
+                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span class="text-xs font-medium text-slate-600">DeepSeek-V4-Pro Ready</span>
+            </div>
+            <button id="settingsBtn" class="w-9 h-9 rounded-lg hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors" title="设置">
+                <i class="fa-solid fa-gear"></i>
+            </button>
         </div>
     </header>
 
@@ -65,7 +81,7 @@
                     <i class="fa-solid fa-plus"></i> 新建研究课题
                 </button>
             </div>
-            <div class="flex-1 overflow-y-auto p-4 space-y-3">
+            <div id="projectList" class="flex-1 overflow-y-auto p-4 space-y-3">
                 <p class="text-xs text-slate-400 font-medium uppercase tracking-wider">项目历史</p>
                 <div class="project-item p-3 rounded-lg bg-purple-50 border border-purple-100 cursor-pointer">
                     <h3 class="font-semibold text-sm text-purple-900 truncate">大语言模型在医疗诊断中的应用</h3>
@@ -97,9 +113,7 @@
             </div>
 
             <!-- 聊天消息区 -->
-            <div id="chatContainer" class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-                <p class="text-slate-400 text-center mt-20">界面布局搭建完成，后续将补充交互逻辑</p>
-            </div>
+            <div id="chatContainer" class="flex-1 overflow-y-auto px-6 py-6 space-y-4"></div>
 
             <!-- 输入区 -->
             <div class="p-4 bg-white border-t border-slate-200">
@@ -178,7 +192,7 @@
 
     <!-- 设置弹窗 -->
     <div id="settingsModal" class="fixed inset-0 z-50 hidden items-center justify-center">
-        <div class="absolute inset-0 bg-slate-900/50"></div>
+        <div id="settingsOverlay" class="absolute inset-0 bg-slate-900/50"></div>
         <div class="glass-panel relative w-full max-w-md mx-4 p-6 rounded-2xl">
             <h3 class="text-lg font-bold text-slate-800 mb-4">设置</h3>
             <div class="space-y-4">
@@ -189,7 +203,7 @@
                 </div>
                 <div>
                     <label class="text-sm font-medium text-slate-600 block mb-1">后端 API 地址</label>
-                    <input type="text" value="http://127.0.0.1:8000" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500">
+                    <input id="apiBaseInput" type="text" value="http://127.0.0.1:8000" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500">
                 </div>
             </div>
             <div class="flex justify-end gap-2 mt-6">
@@ -200,7 +214,21 @@
     </div>
 
     <script>
-        // 初始化引用来源分布甜甜圈图
+        // ==================== 全局状态管理 ====================
+        const state = {
+            messages: [],
+            isProcessing: false,
+            currentStep: 0 // 0 检索员 / 1 总结员 / 2 批判员
+        };
+
+        // DOM 元素
+        const chatContainer = document.getElementById('chatContainer');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const newProjectBtn = document.getElementById('newProjectBtn');
+        const currentProjectTitle = document.getElementById('currentProjectTitle');
+
+        // ==================== 引用来源图表 ====================
         let citationChart = null;
         function initChart() {
             const canvas = document.getElementById('citationChart');
@@ -223,11 +251,26 @@
             });
         }
 
-        // 模拟三步智能体协作的异步流程
+        // ==================== 智能体工作流模拟 ====================
+        function resetWorkflow() {
+            document.querySelectorAll('.agent-step').forEach(el => {
+                el.classList.remove('active', 'completed');
+                el.classList.add('opacity-50');
+                const bar = el.querySelector('.step-bar');
+                if (bar) bar.style.width = '0';
+                const status = el.querySelector('.step-status');
+                if (status) { status.textContent = '等待'; status.className = 'step-status text-xs text-slate-400'; }
+            });
+            const ws = document.getElementById('workflowStatus');
+            if (ws) ws.textContent = 'Running';
+            state.currentStep = 0;
+        }
+
         async function simulateAgentWorkflow() {
             const order = ['retriever', 'summarizer', 'critic'];
             for (let i = 0; i < order.length; i++) {
                 const key = order[i];
+                state.currentStep = i;
                 const el = document.querySelector(`.agent-step[data-step="${key}"]`);
                 if (!el) continue;
                 el.classList.add('active');
@@ -235,7 +278,7 @@
                 const status = el.querySelector('.step-status');
                 if (status) { status.textContent = '进行中'; status.className = 'step-status text-xs text-blue-500'; }
 
-                await new Promise(r => setTimeout(r, 1400));
+                await new Promise(r => setTimeout(r, 1200));
                 const bar = el.querySelector('.step-bar');
                 if (bar) bar.style.width = '100%';
                 await new Promise(r => setTimeout(r, 350));
@@ -245,11 +288,158 @@
                 if (status) { status.textContent = '已完成'; status.className = 'step-status text-xs text-green-600'; }
             }
             const ws = document.getElementById('workflowStatus');
-            if (ws) { ws.textContent = 'Completed'; }
+            if (ws) ws.textContent = 'Completed';
         }
 
+        // ==================== 消息渲染 ====================
+        function escapeHtml(str) {
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function renderMarkdown(text) {
+            return escapeHtml(text)
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/`(.+?)`/g, '<code>$1</code>')
+                .replace(/\n/g, '<br>');
+        }
+
+        function addMessage(role, content) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'flex gap-3 max-w-4xl mx-auto';
+            const isUser = role === 'user';
+            const avatar = isUser
+                ? '<div class="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 shrink-0"><i class="fa-solid fa-user"></i></div>'
+                : '<div class="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white shrink-0"><i class="fa-solid fa-robot"></i></div>';
+            const bubble = isUser
+                ? 'bg-purple-600 text-white rounded-2xl rounded-tr-none'
+                : 'bg-white border border-slate-200 text-slate-700 rounded-2xl rounded-tl-none shadow-sm';
+            wrapper.innerHTML = avatar + `<div class="max-w-[85%] ${bubble} p-4"><div class="leading-relaxed whitespace-pre-wrap markdown-body">${renderMarkdown(content)}</div></div>`;
+            chatContainer.appendChild(wrapper);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            return wrapper;
+        }
+
+        function addTypingIndicator() {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'flex gap-3 max-w-4xl mx-auto';
+            wrapper.innerHTML = `
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white shrink-0"><i class="fa-solid fa-robot"></i></div>
+                <div class="bg-white border border-slate-200 rounded-2xl rounded-tl-none shadow-sm px-4 py-3.5 flex items-center gap-1">
+                    <span class="typing-dot"></span><span class="typing-dot" style="animation-delay:0.15s"></span><span class="typing-dot" style="animation-delay:0.3s"></span>
+                </div>`;
+            chatContainer.appendChild(wrapper);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            return wrapper;
+        }
+
+        // ==================== 模拟回复（关键词匹配） ====================
+        function generateMockReply(text) {
+            if (/检索|文献|综述|调研|reference/i.test(text)) {
+                return '**文献检索分析**\n\n我已在 arXiv、PubMed 等数据库中检索到 42 篇相关文献，核心结论如下：\n\n1. **Transformer 仍是主流**：注意力机制优化是近两年研究热点。\n2. **高效推理**：混合专家（MoE）架构被广泛采用。\n\n完整引用已整理至右侧面板，可点击查看详情。';
+            }
+            if (/实验|代码|实现|方法|对比/i.test(text)) {
+                return '**实验设计建议**\n\n1. 使用公开数据集（如 PubMedQA、CORD-19）进行基线对比。\n2. 设置消融实验，验证 RAG 检索模块的贡献。\n3. 记录推理耗时与显存占用作为效率指标。';
+            }
+            return '**深度分析**\n\n针对您的问题，建议从以下维度展开：\n\n1. **理论层面**：审视基础假设在非平稳分布下的鲁棒性。\n2. **实验设计**：引入对抗性样本验证模型边界表现。\n\n相关参考文献已整理至右侧面板。';
+        }
+
+        // ==================== 发送消息 ====================
+        function setSendingDisabled(disabled) {
+            sendBtn.disabled = disabled;
+            userInput.disabled = disabled;
+            sendBtn.classList.toggle('opacity-50', disabled);
+            sendBtn.classList.toggle('cursor-not-allowed', disabled);
+            sendBtn.innerHTML = disabled
+                ? '<i class="fa-solid fa-spinner fa-spin"></i> 处理中'
+                : '<i class="fa-solid fa-paper-plane"></i> 发送';
+        }
+
+        async function sendMessage() {
+            const text = userInput.value.trim();
+            if (!text || state.isProcessing) return;
+
+            state.messages.push({ role: 'user', content: text });
+            addMessage('user', text);
+            userInput.value = '';
+            userInput.style.height = 'auto';
+            state.isProcessing = true;
+            setSendingDisabled(true);
+
+            resetWorkflow();
+            simulateAgentWorkflow();
+
+            const loading = addTypingIndicator();
+            await new Promise(r => setTimeout(r, 2200));
+            loading.remove();
+
+            const reply = generateMockReply(text);
+            state.messages.push({ role: 'ai', content: reply });
+            addMessage('ai', reply);
+
+            state.isProcessing = false;
+            setSendingDisabled(false);
+        }
+
+        // ==================== 键盘与按钮事件 ====================
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        userInput.addEventListener('input', () => {
+            userInput.style.height = 'auto';
+            userInput.style.height = Math.min(userInput.scrollHeight, 160) + 'px';
+        });
+        sendBtn.addEventListener('click', sendMessage);
+
+        // ==================== 新建课题 ====================
+        function createNewProject() {
+            const name = prompt('请输入新课题名称：');
+            if (!name || !name.trim()) return;
+            const title = name.trim();
+            currentProjectTitle.textContent = title;
+
+            chatContainer.innerHTML = '';
+            state.messages = [];
+            addMessage('ai', `已创建新课题「${title}」，请告诉我你的研究问题。`);
+
+            const list = document.getElementById('projectList');
+            list.querySelectorAll('.project-item').forEach(el => {
+                el.className = 'project-item p-3 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 cursor-pointer transition-all';
+            });
+            const item = document.createElement('div');
+            item.className = 'project-item p-3 rounded-lg bg-purple-50 border border-purple-100 cursor-pointer';
+            const today = new Date().toISOString().slice(0, 10);
+            item.innerHTML = `<h3 class="font-semibold text-sm text-purple-900 truncate">${escapeHtml(title)}</h3><p class="text-xs text-purple-600 mt-1">${today} • 进行中</p>`;
+            const heading = list.querySelector('p');
+            list.insertBefore(item, heading.nextSibling);
+        }
+        newProjectBtn.addEventListener('click', createNewProject);
+
+        // ==================== 设置弹窗 ====================
+        function openSettings() {
+            const m = document.getElementById('settingsModal');
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+        }
+        function closeSettings() {
+            const m = document.getElementById('settingsModal');
+            m.classList.add('hidden');
+            m.classList.remove('flex');
+        }
+        function toggleSettings() {
+            document.getElementById('settingsModal').classList.contains('hidden') ? openSettings() : closeSettings();
+        }
+        document.getElementById('settingsBtn').addEventListener('click', toggleSettings);
+        document.getElementById('closeSettingsBtn').addEventListener('click', closeSettings);
+        document.getElementById('saveSettingsBtn').addEventListener('click', closeSettings);
+        document.getElementById('settingsOverlay').addEventListener('click', closeSettings);
+
+        // ==================== 页面初始化 ====================
         window.addEventListener('DOMContentLoaded', () => {
             initChart();
+            addMessage('ai', '你好！我是你的科研助手，已加载 DeepSeek-V4-Pro 模型。请告诉我你当前研究的课题，开始你的科研之旅。');
             simulateAgentWorkflow();
         });
     </script>
