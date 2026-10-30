@@ -356,7 +356,8 @@
 
         async function sendMessage() {
             const text = userInput.value.trim();
-            if (!text || state.isProcessing) return;
+            if (state.isProcessing) return;
+            if (!text) { alert('请输入你的问题！'); userInput.focus(); return; }
 
             state.messages.push({ role: 'user', content: text });
             addMessage('user', text);
