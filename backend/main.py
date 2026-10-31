@@ -132,25 +132,7 @@ def health():
 @app.post("/api/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
     """真实 DeepSeek 对话接口（若向量库中有文献，会自动带上检索到的上下文与来源）。"""
-    context = ""
-    sources = []
-    if chromadb is not None:
-        try:
-            col = _get_collection()
-            res = col.query(query_embeddings=[_hash_embed(request.question)], n_results=3)
-            docs = res.get("documents", [[]])[0]
-            metas = res.get("metadatas", [[]])[0]
-            context = "\n\n".join(d for d in docs if d)
-            for d, m in zip(docs, metas):
-                if d:
-                    meta = m or {}
-                    sources.append({
-                        "snippet": d[:120],
-                        "source": meta.get("source", "上传文献"),
-                        "chunk": meta.get("chunk"),
-                    })
-        except Exception:
-            context = ""
+    context, sources = _retrieve_context(request.question, 3)
     result = call_deepseek(request.question, request.temperature, context)
     result["sources"] = sources or None
     return result
@@ -195,6 +177,38 @@ def _get_collection():
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"ChromaDB 初始化失败：{e}")
     return _collection
+
+
+def _cosine(a, b) -> float:
+    """余弦相似度。"""
+    s = sum(x * y for x, y in zip(a, b))
+    na = sum(x * x for x in a) ** 0.5
+    nb = sum(y * y for y in b) ** 0.5
+    return s / (na * nb) if na and nb else 0.0
+
+
+def _retrieve_context(topic: str, k: int = 3):
+    """从向量库检索与主题相关的片段，返回 (context, sources)。"""
+    if chromadb is None:
+        return "", []
+    try:
+        col = _get_collection()
+        res = col.query(query_embeddings=[_hash_embed(topic)], n_results=k)
+        docs = res.get("documents", [[]])[0]
+        metas = res.get("metadatas", [[]])[0]
+        context = "\n\n".join(d for d in docs if d)
+        sources = []
+        for d, m in zip(docs, metas):
+            if d:
+                meta = m or {}
+                sources.append({
+                    "snippet": d[:120],
+                    "source": meta.get("source", "上传文献"),
+                    "chunk": meta.get("chunk"),
+                })
+        return context, sources
+    except Exception:
+        return "", []
 
 
 class IngestRequest(BaseModel):
@@ -300,29 +314,69 @@ class WritingResponse(BaseModel):
 @app.post("/api/writing", response_model=WritingResponse)
 def writing_assistant(req: WritingRequest):
     """基于已上传文献，为指定主题生成学术论文大纲（含真实来源）。"""
-    context = ""
-    sources = []
-    if chromadb is not None:
-        try:
-            col = _get_collection()
-            res = col.query(query_embeddings=[_hash_embed(req.topic)], n_results=5)
-            docs = res.get("documents", [[]])[0]
-            metas = res.get("metadatas", [[]])[0]
-            context = "\n\n".join(d for d in docs if d)
-            for d, m in zip(docs, metas):
-                if d:
-                    meta = m or {}
-                    sources.append({
-                        "snippet": d[:120],
-                        "source": meta.get("source", "上传文献"),
-                        "chunk": meta.get("chunk"),
-                    })
-        except Exception:
-            context = ""
+    context, sources = _retrieve_context(req.topic, 5)
     prompt = (
         f"请围绕主题「{req.topic}」撰写一份学术论文大纲，包含以下部分："
         "摘要要点、引言要点、相关工作、方法、实验设计、预期结论。"
         "请用 Markdown 标题层级呈现，若提供了文献片段请优先依据它们。"
+    )
+    result = call_deepseek(prompt, 0.7, context)
+    return WritingResponse(outline=result["answer"], model=result["model"], sources=sources or None)
+
+
+# ==================== 引用图谱与综述生成 ====================
+class GraphResponse(BaseModel):
+    nodes: list[dict]
+    edges: list[dict]
+    hub: str | None = None
+
+
+@app.get("/api/graph", response_model=GraphResponse)
+def build_graph(threshold: float = 0.25, max_nodes: int = 30):
+    """基于已入库文献片段构建相似度引用图谱，并挖掘「基石节点」（度数最高）。"""
+    col = _get_collection()
+    data = col.get(include=["documents", "metadatas", "embeddings"])
+
+    def _take(key):
+        v = data.get(key)
+        return list(v)[:max_nodes] if v is not None else []
+
+    ids = _take("ids")
+    docs = _take("documents")
+    metas = _take("metadatas")
+    embs = _take("embeddings")
+
+    nodes = []
+    for i, doc_id in enumerate(ids):
+        meta = metas[i] or {}
+        nodes.append({
+            "id": doc_id,
+            "label": f"{meta.get('source', '文献')}#{meta.get('chunk', '')}",
+            "snippet": (docs[i] or "")[:80],
+        })
+
+    edges = []
+    for i in range(len(ids)):
+        for j in range(i + 1, len(ids)):
+            sim = float(_cosine(embs[i], embs[j]))
+            if sim >= threshold:
+                edges.append({"source": ids[i], "target": ids[j], "weight": round(sim, 3)})
+
+    degree = {n["id"]: 0 for n in nodes}
+    for e in edges:
+        degree[e["source"]] += 1
+        degree[e["target"]] += 1
+    hub = max(degree, key=degree.get) if degree else None
+    return GraphResponse(nodes=nodes, edges=edges, hub=hub)
+
+
+@app.post("/api/survey", response_model=WritingResponse)
+def generate_survey(req: WritingRequest):
+    """基于已入库文献生成领域综述（研究背景/方法流派/关键发现/挑战与未来）。"""
+    context, sources = _retrieve_context(req.topic, 6)
+    prompt = (
+        f"请围绕「{req.topic}」撰写一份领域文献综述，包含：研究背景、主要方法与流派、"
+        "关键发现、现存挑战与未来方向。请用 Markdown 呈现，并优先依据提供的文献片段。"
     )
     result = call_deepseek(prompt, 0.7, context)
     return WritingResponse(outline=result["answer"], model=result["model"], sources=sources or None)
