@@ -795,3 +795,129 @@ def literature_search(req: LiteratureRequest):
             except Exception:
                 fail.append(name)
     return LiteratureResponse(query=req.query, results=results, sources_ok=ok, sources_fail=fail)
+
+
+# ==================== 论文查重（基于开源文献库） ====================
+class PlagiarismRequest(BaseModel):
+    text: str = Field(..., min_length=20, description="待查重的文本（至少 20 字）")
+
+
+class PlagiarismMatch(BaseModel):
+    source: str
+    title: str
+    year: str
+    similarity: float
+    url: str
+
+
+class PlagiarismResponse(BaseModel):
+    text_len: int
+    max_similarity: float
+    risk_level: str
+    matches: list[PlagiarismMatch]
+    sources_checked: list[str]
+
+
+def _openalex_abstract(it) -> str:
+    inv = it.get("abstract_inverted_index")
+    if not inv:
+        return ""
+    pairs = []
+    for word, positions in inv.items():
+        for pos in positions:
+            pairs.append((pos, word))
+    pairs.sort()
+    return " ".join(w for _, w in pairs)
+
+
+@app.post("/api/plagiarism-check", response_model=PlagiarismResponse)
+def plagiarism_check(req: PlagiarismRequest):
+    """基于 OpenAlex / arXiv / Europe PMC 开源文献库做相似度查重。"""
+    text = req.text.strip()
+    qvec = _hash_embed(text)
+    query = text[:180]
+
+    matches = []
+    checked = []
+
+    try:
+        resp = requests.get(
+            "https://api.openalex.org/works",
+            params={"search": query, "per-page": 5},
+            timeout=20,
+        )
+        resp.raise_for_status()
+        for it in resp.json().get("results", []):
+            cand = (it.get("title") or "") + " " + _openalex_abstract(it)
+            sim = float(_cosine(qvec, _hash_embed(cand)))
+            matches.append({
+                "source": "OpenAlex",
+                "title": it.get("title") or "",
+                "year": str(it.get("publication_year") or ""),
+                "similarity": round(sim, 3),
+                "url": it.get("doi") or "",
+            })
+        checked.append("OpenAlex")
+    except Exception:
+        pass
+
+    try:
+        import xml.etree.ElementTree as ET
+
+        resp = requests.get(
+            "http://export.arxiv.org/api/query",
+            params={"search_query": f"all:{query}", "max_results": 5},
+            timeout=20,
+        )
+        resp.raise_for_status()
+        root = ET.fromstring(resp.text)
+        ns = {"a": "http://www.w3.org/2005/Atom"}
+        for entry in root.findall("a:entry", ns):
+            title = (entry.findtext("a:title", default="", namespaces=ns) or "").strip()
+            summary = (entry.findtext("a:summary", default="", namespaces=ns) or "").strip()
+            sim = float(_cosine(qvec, _hash_embed(title + " " + summary)))
+            matches.append({
+                "source": "arXiv",
+                "title": title,
+                "year": (entry.findtext("a:published", default="", namespaces=ns) or "")[:4],
+                "similarity": round(sim, 3),
+                "url": (entry.findtext("a:id", default="", namespaces=ns) or "").strip(),
+            })
+        checked.append("arXiv")
+    except Exception:
+        pass
+
+    try:
+        resp = requests.get(
+            "https://www.ebi.ac.uk/europepmc/webservices/rest/search",
+            params={"query": query, "format": "json", "pageSize": 5},
+            timeout=20,
+        )
+        resp.raise_for_status()
+        for it in resp.json().get("resultList", {}).get("result", []):
+            cand = (it.get("title") or "") + " " + (it.get("abstractText") or "")
+            sim = float(_cosine(qvec, _hash_embed(cand)))
+            doi = it.get("doi", "")
+            matches.append({
+                "source": "Europe PMC",
+                "title": it.get("title", ""),
+                "year": str(it.get("pubYear", "")),
+                "similarity": round(sim, 3),
+                "url": f"https://doi.org/{doi}" if doi else "",
+            })
+        checked.append("Europe PMC")
+    except Exception:
+        pass
+
+    matches.sort(key=lambda m: m["similarity"], reverse=True)
+    top = matches[:5]
+    max_sim = top[0]["similarity"] if top else 0.0
+    risk = "高" if max_sim >= 0.6 else ("中" if max_sim >= 0.4 else "低")
+
+    return PlagiarismResponse(
+        text_len=len(text),
+        max_similarity=max_sim,
+        risk_level=risk,
+        matches=top,
+        sources_checked=checked,
+    )

@@ -296,6 +296,10 @@
                     <i class="fa-solid fa-quote-right text-purple-600 text-xl"></i>
                     <span class="text-xs text-slate-700" data-i18n="cite">文献纠错</span>
                 </button>
+                <button id="plagBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-shield-halved text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">论文查重</span>
+                </button>
                 <button id="csvBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
                     <i class="fa-solid fa-chart-column text-purple-600 text-xl"></i>
                     <span class="text-xs text-slate-700" data-i18n="csv">CSV 图表</span>
@@ -317,7 +321,7 @@
                     <span class="text-xs text-slate-700" data-i18n="reader">PDF 阅读</span>
                 </button>
             </div>
-            <p class="text-xs text-slate-400 mt-4 text-center" data-i18n="toolsCount">共 13 项科研辅助工具</p>
+            <p class="text-xs text-slate-400 mt-4 text-center" data-i18n="toolsCount">共 14 项科研辅助工具</p>
         </div>
     </div>
 
@@ -356,6 +360,22 @@
                 <button id="mlGoBtn" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">翻译</button>
             </div>
             <div id="mlResult" class="mt-3 p-3 bg-slate-50 rounded-lg text-sm text-slate-700 min-h-[40px]"></div>
+        </div>
+    </div>
+
+    <!-- 论文查重弹窗 -->
+    <div id="plagModal" class="fixed inset-0 z-50 hidden items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/50"></div>
+        <div class="glass-panel relative w-full max-w-2xl mx-4 p-6 rounded-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-shield-halved mr-2 text-purple-600"></i>论文查重</h3>
+                <button id="plagCloseBtn" class="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg">关闭</button>
+            </div>
+            <textarea id="plagText" rows="5" placeholder="粘贴要查重的论文段落（建议英文，至少 20 字）…" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500 resize-none"></textarea>
+            <div class="mt-3 flex justify-end">
+                <button id="plagGoBtn" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">开始查重</button>
+            </div>
+            <div id="plagResult" class="mt-3 p-3 bg-slate-50 rounded-lg text-sm text-slate-700 min-h-[60px] max-h-[300px] overflow-y-auto"></div>
         </div>
     </div>
 
@@ -1104,7 +1124,7 @@
                 citationDist: "引用来源分布", upload: "上传文献", outline: "论文大纲", survey: "文献综述", graph: "引用图谱",
                 translate: "学术翻译", mlTranslate: "多语言翻译", polish: "学术润色", cite: "文献纠错",
                 csv: "CSV 图表", arxiv: "arXiv 检索", latex: "LaTeX 表格", reader: "PDF 阅读",
-                toolsCount: "共 13 项科研辅助工具", close: "关闭"
+                toolsCount: "共 14 项科研辅助工具", close: "关闭"
             },
             en: {
                 subtitle: "Multi-Agent Research Assistant", newProject: "New Project", toolbox: "Toolbox",
@@ -1115,7 +1135,7 @@
                 citationDist: "Citation Sources", upload: "Upload PDF", outline: "Outline", survey: "Survey", graph: "Citation Graph",
                 translate: "Translate", mlTranslate: "Multi-Lang", polish: "Polish", cite: "Fix Citation",
                 csv: "CSV Chart", arxiv: "arXiv Search", latex: "LaTeX Table", reader: "PDF Reader",
-                toolsCount: "13 research tools", close: "Close"
+                toolsCount: "14 research tools", close: "Close"
             },
             ja: {
                 subtitle: "マルチエージェント研究支援システム", newProject: "新規プロジェクト", toolbox: "ツールボックス",
@@ -1222,6 +1242,47 @@
                 applyLanguage(saved);
             }
         } catch (e) {}
+
+        // ==================== 论文查重 ====================
+        document.getElementById('plagBtn').addEventListener('click', () => {
+            const m = document.getElementById('plagModal');
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+        });
+        document.getElementById('plagCloseBtn').addEventListener('click', () => {
+            const m = document.getElementById('plagModal');
+            m.classList.add('hidden');
+            m.classList.remove('flex');
+        });
+        document.getElementById('plagGoBtn').addEventListener('click', async () => {
+            const text = document.getElementById('plagText').value.trim();
+            const out = document.getElementById('plagResult');
+            if (!text || text.length < 20) { out.textContent = '请至少输入 20 字'; return; }
+            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            out.textContent = '查重中（正在比对 OpenAlex / arXiv / Europe PMC）…';
+            try {
+                const resp = await fetch(`${apiBase}/api/plagiarism-check`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+                const data = await resp.json();
+                if (!resp.ok) { out.textContent = '失败：' + (data.detail || '未知错误'); return; }
+                const riskColor = data.risk_level === '高' ? 'text-red-600' : (data.risk_level === '中' ? 'text-amber-600' : 'text-green-600');
+                let html = `<div class="font-semibold mb-1">最高相似度：${(data.max_similarity * 100).toFixed(1)}%　风险等级：<span class="${riskColor}">${data.risk_level}</span></div>`;
+                html += `<div class="text-xs text-slate-500 mb-2">已比对：${(data.sources_checked || []).join('、')}</div>`;
+                (data.matches || []).forEach(m => {
+                    html += `<div class="p-2 border border-slate-200 rounded mb-1 bg-white">
+                        <div class="text-xs font-medium text-slate-800">${escapeHtml(m.title)}</div>
+                        <div class="text-xs text-slate-500">${m.source} · ${m.year} · 相似度 ${(m.similarity * 100).toFixed(1)}%</div>
+                        ${m.url ? `<a href="${m.url}" target="_blank" class="text-xs text-purple-600 underline">查看原文</a>` : ''}
+                    </div>`;
+                });
+                out.innerHTML = html;
+            } catch (e) {
+                out.textContent = '失败：' + e.message;
+            }
+        });
 
         // ==================== 页面初始化 ====================
         window.addEventListener('DOMContentLoaded', () => {
