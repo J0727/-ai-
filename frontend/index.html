@@ -1289,6 +1289,7 @@
         const _origTexts = new Map();
         const _origPlaceholders = new Map();
         const _transCache = {};
+        let currentLang = 'zh';
 
         function loadTransCache() {
             try {
@@ -1333,6 +1334,7 @@
         }
 
         async function translatePage(target) {
+            currentLang = target;
             if (target === 'zh') {
                 _origTexts.forEach((orig, node) => { if (node.isConnected) node.textContent = orig; });
                 _origPlaceholders.forEach((orig, el) => { if (el.isConnected) el.setAttribute('placeholder', orig); });
@@ -1375,6 +1377,57 @@
             placeholders.forEach(el => { const t = cache[_origPlaceholders.get(el)]; if (t) el.setAttribute('placeholder', t); });
             hideToast();
             try { localStorage.setItem('zhihui_lang', target); } catch (e) {}
+        }
+
+        // 批量翻译一组文本（带缓存，渲染前调用可避免闪烁）
+        async function translateTexts(texts, target) {
+            if (!texts || !texts.length) return texts || [];
+            if (!target || target === 'zh') return texts;
+            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const cache = _transCache[target] || {};
+            const uniq = [...new Set(texts.filter(t => t && !cache[t]))];
+            if (uniq.length) {
+                const chunks = [];
+                for (let i = 0; i < uniq.length; i += 30) chunks.push(uniq.slice(i, i + 30));
+                await Promise.all(chunks.map(async (chunk) => {
+                    try {
+                        const resp = await fetch(`${apiBase}/api/translate-batch`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ texts: chunk, target })
+                        });
+                        const data = await resp.json();
+                        if (data.translations) {
+                            chunk.forEach((src, j) => { if (data.translations[j]) cache[src] = data.translations[j]; });
+                        }
+                    } catch (e) {}
+                }));
+                _transCache[target] = cache;
+                saveTransCache();
+            }
+            return texts.map(t => cache[t] || t);
+        }
+
+        // 翻译容器内的静态文字（弹窗等动态出现的内容）
+        async function translateContainer(rootEl) {
+            if (!rootEl || currentLang === 'zh') return;
+            const nodes = [];
+            const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, {
+                acceptNode(node) {
+                    const p = node.parentElement;
+                    if (!p) return NodeFilter.FILTER_REJECT;
+                    if (['SCRIPT', 'STYLE', 'TEXTAREA', 'OPTION'].includes(p.tagName)) return NodeFilter.FILTER_REJECT;
+                    if (!node.textContent.trim()) return NodeFilter.FILTER_REJECT;
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+            });
+            while (walker.nextNode()) nodes.push(walker.currentNode);
+            nodes.forEach(n => { if (!_origTexts.has(n)) _origTexts.set(n, n.textContent); });
+            const texts = [...new Set(nodes.map(n => _origTexts.get(n)))];
+            const translated = await translateTexts(texts, currentLang);
+            const map = {};
+            texts.forEach((t, i) => { map[t] = translated[i]; });
+            nodes.forEach(n => { const t = map[_origTexts.get(n)]; if (t) n.textContent = t; });
         }
 
         document.getElementById('uiLang').addEventListener('change', async (e) => {
@@ -1556,6 +1609,7 @@
             const m = document.getElementById('subjectModal');
             m.classList.remove('hidden');
             m.classList.add('flex');
+            await translateContainer(m);
             await loadSubjects();
             await loadHistory();
         });
@@ -1572,12 +1626,14 @@
             try {
                 const resp = await fetch(`${apiBase}/api/subjects`);
                 const data = await resp.json();
+                const subs = data.subjects || [];
+                const tNames = await translateTexts(subs.map(s => s.name), currentLang);
                 list.innerHTML = '';
-                (data.subjects || []).forEach(s => {
+                subs.forEach((s, i) => {
                     const btn = document.createElement('button');
                     btn.className = 'w-full text-left px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors';
-                    btn.textContent = s.name;
-                    btn.onclick = () => loadSubjectLiterature(s);
+                    btn.textContent = tNames[i] || s.name;
+                    btn.onclick = () => loadSubjectLiterature(s, tNames[i] || s.name);
                     list.appendChild(btn);
                 });
             } catch (e) {
@@ -1585,10 +1641,12 @@
             }
         }
 
-        async function loadSubjectLiterature(subj) {
+        async function loadSubjectLiterature(subj, displayName) {
             const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
             const box = document.getElementById('subjectItems');
-            box.innerHTML = `<p class="text-sm text-slate-400">正在加载「${escapeHtml(subj.name)}」文献…</p>`;
+            const name = displayName || subj.name;
+            const loadingLabel = (await translateTexts(['正在加载文献…'], currentLang))[0];
+            box.innerHTML = `<p class="text-sm text-slate-400">${escapeHtml(loadingLabel)}</p>`;
             let username = 'guest';
             try { username = localStorage.getItem('zhihui_user') || 'guest'; } catch (e) {}
             try {
@@ -1626,18 +1684,22 @@
             try {
                 const resp = await fetch(`${apiBase}/api/history?username=${encodeURIComponent(username)}`);
                 const data = await resp.json();
-                box.innerHTML = `<div class="text-xs font-semibold text-slate-500 mb-1">我的浏览记录（${data.count}）</div>`;
-                (data.records || []).forEach(r => {
+                const recs = data.records || [];
+                const tNames = await translateTexts(recs.map(r => r.subject_name), currentLang);
+                const labels = await translateTexts(['我的浏览记录', '编辑', '删除', '暂无记录，点击学科即可生成'], currentLang);
+                box.innerHTML = `<div class="text-xs font-semibold text-slate-500 mb-1">${escapeHtml(labels[0])}（${data.count}）</div>`;
+                recs.forEach((r, idx) => {
                     const row = document.createElement('div');
                     row.className = 'flex items-center gap-2 text-xs py-1 border-b border-slate-100';
-                    row.innerHTML = `<span class="text-slate-700 flex-1 truncate">${escapeHtml(r.subject_name)}${r.item_title ? ' · ' + escapeHtml(r.item_title) : ''}${r.note ? '（' + escapeHtml(r.note) + '）' : ''}</span>
+                    const sName = tNames[idx] || r.subject_name;
+                    row.innerHTML = `<span class="text-slate-700 flex-1 truncate">${escapeHtml(sName)}${r.item_title ? ' · ' + escapeHtml(r.item_title) : ''}${r.note ? '（' + escapeHtml(r.note) + '）' : ''}</span>
                         <span class="text-slate-400">${(r.created_at || '').slice(0, 10)}</span>
-                        <button class="text-purple-600 hover:underline" data-edit="${r.id}">编辑</button>
-                        <button class="text-red-500 hover:underline" data-del="${r.id}">删除</button>`;
+                        <button class="text-purple-600 hover:underline" data-edit="${r.id}">${escapeHtml(labels[1])}</button>
+                        <button class="text-red-500 hover:underline" data-del="${r.id}">${escapeHtml(labels[2])}</button>`;
                     box.appendChild(row);
                 });
-                if (!(data.records || []).length) {
-                    box.innerHTML += '<p class="text-xs text-slate-400">暂无记录，点击学科即可生成</p>';
+                if (!recs.length) {
+                    box.innerHTML += `<p class="text-xs text-slate-400">${escapeHtml(labels[3])}</p>`;
                 }
                 box.querySelectorAll('[data-del]').forEach(b => {
                     b.onclick = async () => {
