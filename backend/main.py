@@ -271,6 +271,26 @@ def chunk_text(text: str, size: int = 500, overlap: int = 50) -> list[str]:
     return chunks
 
 
+def _ocr_pdf(content: bytes) -> str:
+    """对扫描件 PDF 逐页渲染并 OCR（RapidOCR + PyMuPDF）。"""
+    import pymupdf as fitz  # pymupdf 2.0+ 推荐写法
+    import cv2
+    import numpy as np
+    from rapidocr_onnxruntime import RapidOCR
+
+    ocr = RapidOCR()
+    doc = fitz.open(stream=content, filetype="pdf")
+    parts = []
+    for page in doc:
+        pix = page.get_pixmap(dpi=150, alpha=False)
+        arr = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
+        bgr = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+        result, _ = ocr(bgr)
+        if result:
+            parts.append("".join(r[1] for r in result))
+    return "\n".join(parts)
+
+
 @app.post("/api/upload", response_model=UploadResponse)
 async def upload_pdf(file: UploadFile = File(...)):
     """上传 PDF 文献：提取文本 → 切片 → 写入向量库，供后续问答检索。"""
@@ -284,10 +304,13 @@ async def upload_pdf(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"PDF 解析失败：{e}")
     if not text.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="未提取到文本，可能是扫描件 PDF（需 OCR，当前版本暂不支持）",
-        )
+        # 扫描件 PDF：回退到 OCR
+        try:
+            text = _ocr_pdf(content)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"扫描件 OCR 失败：{e}")
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="未提取到任何文本（含 OCR 后仍为空）")
     chunks = chunk_text(text)
     col = _get_collection()
     for i, ch in enumerate(chunks):
