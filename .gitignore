@@ -1,5 +1,15 @@
 node_modules/
 __pycache__/
+*.pyc
 .env
 *.log
 .DS_Store
+Thumbs.db
+
+# Python 虚拟环境
+.venv/
+venv/
+
+# 向量库数据
+chroma_data/
+
