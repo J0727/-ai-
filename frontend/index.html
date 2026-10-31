@@ -393,6 +393,7 @@
             return escapeHtml(text)
                 .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
                 .replace(/`(.+?)`/g, '<code>$1</code>')
+                .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" class="text-purple-600 underline">$1</a>')
                 .replace(/\n/g, '<br>');
         }
 
@@ -997,6 +998,9 @@
                     });
                 });
                 if (!Object.keys(groups).length) md += '未检索到结果。';
+                md += `\n---\n**需手动检索的源（有反爬限制，点击可跳转）**\n`;
+                md += `- [DBLP 检索「${query}」](https://dblp.org/search?q=${encodeURIComponent(query)})\n`;
+                md += `- [Semantic Scholar 检索「${query}」](https://www.semanticscholar.org/search?q=${encodeURIComponent(query)})\n`;
                 addMessage('ai', md);
             } catch (e) {
                 loading.remove();
