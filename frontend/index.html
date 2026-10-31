@@ -1258,6 +1258,34 @@
         // ==================== 全页面翻译（含弹窗） ====================
         const _origTexts = new Map();
         const _origPlaceholders = new Map();
+        const _transCache = {};
+
+        function loadTransCache() {
+            try {
+                const raw = localStorage.getItem('zhihui_trans');
+                if (raw) Object.assign(_transCache, JSON.parse(raw));
+            } catch (e) {}
+        }
+        function saveTransCache() {
+            try { localStorage.setItem('zhihui_trans', JSON.stringify(_transCache)); } catch (e) {}
+        }
+        loadTransCache();
+
+        function showToast(msg) {
+            let el = document.getElementById('i18nToast');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'i18nToast';
+                el.className = 'fixed bottom-6 right-6 z-[60] bg-slate-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg';
+                document.body.appendChild(el);
+            }
+            el.textContent = msg;
+            el.style.display = 'block';
+        }
+        function hideToast() {
+            const el = document.getElementById('i18nToast');
+            if (el) el.style.display = 'none';
+        }
 
         function collectTextNodes() {
             const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
@@ -1278,6 +1306,7 @@
             if (target === 'zh') {
                 _origTexts.forEach((orig, node) => { if (node.isConnected) node.textContent = orig; });
                 _origPlaceholders.forEach((orig, el) => { if (el.isConnected) el.setAttribute('placeholder', orig); });
+                hideToast();
                 try { localStorage.setItem('zhihui_lang', 'zh'); } catch (e) {}
                 return;
             }
@@ -1289,31 +1318,45 @@
 
             const items = nodes.map(n => _origTexts.get(n)).concat(placeholders.map(el => _origPlaceholders.get(el)));
             const unique = [...new Set(items)];
-            const trans = {};
-            for (let i = 0; i < unique.length; i += 40) {
-                const chunk = unique.slice(i, i + 40);
-                try {
-                    const resp = await fetch(`${apiBase}/api/translate-batch`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ texts: chunk, target })
-                    });
-                    const data = await resp.json();
-                    if (data.translations) {
-                        chunk.forEach((src, j) => { if (data.translations[j]) trans[src] = data.translations[j]; });
-                    }
-                } catch (e) {}
+            const cache = _transCache[target] || {};
+            const missing = unique.filter(t => !cache[t]);
+
+            if (missing.length) {
+                showToast('正在翻译界面…');
+                const chunks = [];
+                for (let i = 0; i < missing.length; i += 30) chunks.push(missing.slice(i, i + 30));
+                await Promise.all(chunks.map(async (chunk) => {
+                    try {
+                        const resp = await fetch(`${apiBase}/api/translate-batch`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ texts: chunk, target })
+                        });
+                        const data = await resp.json();
+                        if (data.translations) {
+                            chunk.forEach((src, j) => { if (data.translations[j]) cache[src] = data.translations[j]; });
+                        }
+                    } catch (e) {}
+                }));
+                _transCache[target] = cache;
+                saveTransCache();
             }
-            nodes.forEach(n => { const t = trans[_origTexts.get(n)]; if (t) n.textContent = t; });
-            placeholders.forEach(el => { const t = trans[_origPlaceholders.get(el)]; if (t) el.setAttribute('placeholder', t); });
+            nodes.forEach(n => { const t = cache[_origTexts.get(n)]; if (t) n.textContent = t; });
+            placeholders.forEach(el => { const t = cache[_origPlaceholders.get(el)]; if (t) el.setAttribute('placeholder', t); });
+            hideToast();
             try { localStorage.setItem('zhihui_lang', target); } catch (e) {}
         }
 
-        document.getElementById('uiLang').addEventListener('change', (e) => {
+        document.getElementById('uiLang').addEventListener('change', async (e) => {
             const lang = e.target.value;
             document.documentElement.lang = lang;
             document.documentElement.dir = (lang === 'ar') ? 'rtl' : 'ltr';
-            translatePage(lang);
+            e.target.disabled = true;
+            try {
+                await translatePage(lang);
+            } finally {
+                e.target.disabled = false;
+            }
         });
         try {
             const saved = localStorage.getItem('zhihui_lang');
