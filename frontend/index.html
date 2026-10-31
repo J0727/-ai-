@@ -95,6 +95,9 @@
                 <button id="translateBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
                     <i class="fa-solid fa-language"></i> 学术翻译
                 </button>
+                <button id="polishBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-spell-check"></i> 学术润色
+                </button>
                 <button id="csvBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
                     <i class="fa-solid fa-chart-column"></i> CSV 图表
                 </button>
@@ -819,6 +822,33 @@
             m.classList.remove('flex');
             document.getElementById('readerFrame').src = 'about:blank';
         });
+
+        // ==================== 学术润色 ====================
+        document.getElementById('polishBtn').addEventListener('click', async () => {
+            const text = prompt('粘贴要润色的学术文本：');
+            if (!text || !text.trim()) return;
+            await polishText(text.trim());
+        });
+
+        async function polishText(text) {
+            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            addMessage('user', `请润色：${text.slice(0, 60)}${text.length > 60 ? '...' : ''}`);
+            const loading = addTypingIndicator();
+            try {
+                const resp = await fetch(`${apiBase}/api/polish`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+                const data = await resp.json();
+                loading.remove();
+                if (!resp.ok) { addMessage('ai', `润色失败：${data.detail || '未知错误'}`); return; }
+                addMessage('ai', data.polished);
+            } catch (e) {
+                loading.remove();
+                addMessage('ai', `润色失败：${e.message}（请确认后端已启动）`);
+            }
+        }
 
         // ==================== 页面初始化 ====================
         window.addEventListener('DOMContentLoaded', () => {

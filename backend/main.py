@@ -544,3 +544,28 @@ def fetch_arxiv(query: str, max_results: int = 5):
             {"title": "BERT: Pre-training of Deep Bidirectional Transformers", "summary": "双向编码器预训练，显著提升多项 NLP 任务。", "published": "2018-10-11", "id": "1810.04805"},
         ]
         return ArxivResponse(papers=sample, source="offline_sample")
+
+
+# ==================== 学术润色（模块六） ====================
+class PolishRequest(BaseModel):
+    text: str = Field(..., min_length=1, description="待润色的学术文本")
+
+
+class PolishResponse(BaseModel):
+    polished: str
+    model: str
+
+
+@app.post("/api/polish", response_model=PolishResponse)
+def polish(req: PolishRequest):
+    """学术润色：纠正错误、规范术语、提升学术表达。"""
+    prompt = (
+        "请作为学术编辑校对并润色以下文本：\n"
+        "1. 修正错别字、标点与语法错误；\n"
+        "2. 指出并修正明显的事实性错误；\n"
+        "3. 将口语化表达替换为规范的学术术语；\n"
+        "4. 输出两部分：先给「修订后全文」，再给「修改点清单」（原句 → 修改后 + 原因）。\n\n"
+        "原文：\n" + req.text
+    )
+    result = call_deepseek(prompt, 0.3, "")
+    return PolishResponse(polished=result["answer"], model=result["model"])
