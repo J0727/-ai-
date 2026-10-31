@@ -98,6 +98,9 @@
                 <button id="polishBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
                     <i class="fa-solid fa-spell-check"></i> 学术润色
                 </button>
+                <button id="citeBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-quote-right"></i> 文献纠错
+                </button>
                 <button id="csvBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
                     <i class="fa-solid fa-chart-column"></i> CSV 图表
                 </button>
@@ -847,6 +850,68 @@
             } catch (e) {
                 loading.remove();
                 addMessage('ai', `润色失败：${e.message}（请确认后端已启动）`);
+            }
+        }
+
+        // ==================== 文献引用校验（Crossref） ====================
+        document.getElementById('citeBtn').addEventListener('click', async () => {
+            const citation = prompt('粘贴要校验的文献引用（如：Attention Is All You Need, Vaswani, 2017）：');
+            if (!citation || !citation.trim()) return;
+            await verifyCitation(citation.trim());
+        });
+
+        async function verifyCitation(citation) {
+            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            addMessage('user', `请校验文献：${citation}`);
+            const loading = addTypingIndicator();
+            try {
+                const resp = await fetch(`${apiBase}/api/verify-citation`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ citation })
+                });
+                const data = await resp.json();
+                loading.remove();
+                if (!resp.ok || !data.candidates || data.candidates.length === 0) {
+                    addMessage('ai', `未在 ${data.source || '数据库'} 中找到匹配文献。你可以选择「自定义」或「不替换」。`);
+                    return;
+                }
+                const wrapper = addMessage('ai', `**找到 ${data.candidates.length} 条匹配文献**（来源：${data.source}），请选择要替换成的正确文献：`);
+                const list = document.createElement('div');
+                list.className = 'mt-2 space-y-2';
+                data.candidates.forEach(c => {
+                    const row = document.createElement('div');
+                    row.className = 'p-2 border border-slate-200 rounded-lg bg-slate-50';
+                    row.innerHTML = `<div class="text-sm font-medium text-slate-800">${escapeHtml(c.title)}</div>
+                        <div class="text-xs text-slate-500 mt-0.5">${escapeHtml(c.authors)} · ${escapeHtml(c.year)}</div>
+                        <div class="text-xs text-slate-400">DOI: ${escapeHtml(c.doi)}${c.container ? ' · ' + escapeHtml(c.container) : ''}</div>`;
+                    const btn = document.createElement('button');
+                    btn.className = 'mt-2 px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded';
+                    btn.textContent = '替换为这条';
+                    btn.onclick = () => addMessage('ai', `✅ **已替换为：**${escapeHtml(c.title)}（${escapeHtml(c.authors)}，${escapeHtml(c.year)}）`);
+                    row.appendChild(btn);
+                    list.appendChild(row);
+                });
+                const actions = document.createElement('div');
+                actions.className = 'mt-2 flex gap-2';
+                const customBtn = document.createElement('button');
+                customBtn.className = 'px-3 py-1 text-xs border border-slate-300 rounded hover:bg-slate-100 text-slate-600';
+                customBtn.textContent = '自定义';
+                customBtn.onclick = () => {
+                    const t = prompt('请输入自定义文献：');
+                    if (t && t.trim()) addMessage('ai', `✅ **已使用自定义文献：**${escapeHtml(t.trim())}`);
+                };
+                const keepBtn = document.createElement('button');
+                keepBtn.className = 'px-3 py-1 text-xs border border-slate-300 rounded hover:bg-slate-100 text-slate-600';
+                keepBtn.textContent = '不替换';
+                keepBtn.onclick = () => addMessage('ai', `已保留原文献：${escapeHtml(citation)}`);
+                actions.appendChild(customBtn);
+                actions.appendChild(keepBtn);
+                list.appendChild(actions);
+                wrapper.querySelector('.markdown-body').appendChild(list);
+            } catch (e) {
+                loading.remove();
+                addMessage('ai', `校验失败：${e.message}（请确认后端已启动）`);
             }
         }
 

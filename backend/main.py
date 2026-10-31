@@ -569,3 +569,59 @@ def polish(req: PolishRequest):
     )
     result = call_deepseek(prompt, 0.3, "")
     return PolishResponse(polished=result["answer"], model=result["model"])
+
+
+# ==================== 文献引用校验（真实数据库 Crossref） ====================
+class CitationRequest(BaseModel):
+    citation: str = Field(..., min_length=1, description="待校验的文献引用")
+
+
+class CitationCandidate(BaseModel):
+    title: str
+    authors: str
+    year: str
+    doi: str
+    container: str
+
+
+class CitationResponse(BaseModel):
+    query: str
+    candidates: list[CitationCandidate]
+    source: str
+
+
+@app.post("/api/verify-citation", response_model=CitationResponse)
+def verify_citation(req: CitationRequest):
+    """用 Crossref 检索文献，返回候选的正确记录，供用户选择替换/自定义/不替换。"""
+    try:
+        resp = requests.get(
+            "https://api.crossref.org/works",
+            params={"query.bibliographic": req.citation, "rows": 3},
+            timeout=20,
+            headers={"User-Agent": "zhihui-yantu/1.0"},
+        )
+        resp.raise_for_status()
+        items = resp.json().get("message", {}).get("items", [])
+        candidates = []
+        for it in items:
+            title = (it.get("title") or [""])[0]
+            authors = ", ".join(
+                f"{a.get('given', '')} {a.get('family', '')}".strip()
+                for a in (it.get("author") or [])[:5]
+            )
+            year = ""
+            for k in ("published-print", "published-online", "issued"):
+                parts = (it.get(k) or {}).get("date-parts")
+                if parts and parts[0] and parts[0][0]:
+                    year = str(parts[0][0])
+                    break
+            candidates.append({
+                "title": title,
+                "authors": authors,
+                "year": year,
+                "doi": it.get("DOI", ""),
+                "container": (it.get("container-title") or [""])[0],
+            })
+        return CitationResponse(query=req.citation, candidates=candidates, source="crossref")
+    except Exception:
+        return CitationResponse(query=req.citation, candidates=[], source="offline")
