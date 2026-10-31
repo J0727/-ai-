@@ -92,6 +92,12 @@
                 <button id="graphBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
                     <i class="fa-solid fa-diagram-project"></i> 引用图谱
                 </button>
+                <button id="translateBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-language"></i> 学术翻译
+                </button>
+                <button id="csvBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-chart-column"></i> CSV 图表
+                </button>
                 <input type="file" id="pdfInput" accept=".pdf" class="hidden">
             </div>
             <div id="projectList" class="flex-1 overflow-y-auto p-4 space-y-3">
@@ -630,6 +636,75 @@
                 info.textContent = `节点 ${nodes.length} 个 · 连线 ${edges.length} 条 · 基石节点 ${data.hub || '无'}`;
             } catch (e) {
                 info.textContent = '生成失败：' + e.message;
+            }
+        }
+
+        // ==================== 学术翻译 ====================
+        document.getElementById('translateBtn').addEventListener('click', async () => {
+            const text = prompt('请输入要翻译的学术文本：');
+            if (!text || !text.trim()) return;
+            await translateText(text.trim());
+        });
+
+        async function translateText(text) {
+            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const target = /[\u4e00-\u9fa5]/.test(text) ? 'en' : 'zh';
+            addMessage('user', `请翻译：${text.slice(0, 60)}${text.length > 60 ? '...' : ''}`);
+            const loading = addTypingIndicator();
+            try {
+                const resp = await fetch(`${apiBase}/api/translate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text, target })
+                });
+                const data = await resp.json();
+                loading.remove();
+                if (!resp.ok) { addMessage('ai', `翻译失败：${data.detail || '未知错误'}`); return; }
+                addMessage('ai', `**翻译结果（${target === 'en' ? '英文' : '中文'}）**\n\n${data.translated}`);
+            } catch (e) {
+                loading.remove();
+                addMessage('ai', `翻译失败：${e.message}（请确认后端已启动）`);
+            }
+        }
+
+        // ==================== CSV 图表 ====================
+        document.getElementById('csvBtn').addEventListener('click', async () => {
+            const csv = prompt('粘贴 CSV 内容（第一行是表头，例如：月份,论文数 / 1月,12 / 2月,18）');
+            if (!csv || !csv.trim()) return;
+            await visualizeCsv(csv.trim());
+        });
+
+        async function visualizeCsv(csv) {
+            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            addMessage('user', '请根据 CSV 生成图表');
+            const loading = addTypingIndicator();
+            try {
+                const resp = await fetch(`${apiBase}/api/visualize`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ csv })
+                });
+                const data = await resp.json();
+                loading.remove();
+                if (!resp.ok) { addMessage('ai', `生成失败：${data.detail || '未知错误'}`); return; }
+                const wrapper = addMessage('ai', `**已解析 CSV**：${data.columns.join(' | ')}，共 ${data.rows.length} 行。`);
+                const cvs = document.createElement('canvas');
+                cvs.width = 500; cvs.height = 260;
+                cvs.className = 'mt-2';
+                wrapper.querySelector('.markdown-body').appendChild(cvs);
+                const labels = data.rows.map(r => r[0]);
+                const values = data.rows.map(r => parseFloat(r[1]) || 0);
+                new Chart(cvs.getContext('2d'), {
+                    type: data.chart_type === 'line' ? 'line' : 'bar',
+                    data: {
+                        labels,
+                        datasets: [{ label: data.columns[1] || '数值', data: values, backgroundColor: '#8b5cf6', borderColor: '#7c3aed', fill: false }]
+                    },
+                    options: { responsive: false, plugins: { legend: { display: false } } }
+                });
+            } catch (e) {
+                loading.remove();
+                addMessage('ai', `生成失败：${e.message}（请确认后端已启动）`);
             }
         }
 

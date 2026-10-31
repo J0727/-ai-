@@ -380,3 +380,48 @@ def generate_survey(req: WritingRequest):
     )
     result = call_deepseek(prompt, 0.7, context)
     return WritingResponse(outline=result["answer"], model=result["model"], sources=sources or None)
+
+
+# ==================== 学术翻译（模块三） ====================
+class TranslateRequest(BaseModel):
+    text: str = Field(..., min_length=1, description="待翻译文本")
+    target: str = Field("en", description="目标语言：en 或 zh")
+
+
+class TranslateResponse(BaseModel):
+    translated: str
+    model: str
+
+
+@app.post("/api/translate", response_model=TranslateResponse)
+def translate(req: TranslateRequest):
+    """学术文本中英互译，保留专业术语与代码。"""
+    target_name = "英文" if req.target == "en" else "中文"
+    prompt = f"请将以下学术文本翻译为{target_name}，保留专业术语、公式与代码不译：\n\n{req.text}"
+    result = call_deepseek(prompt, 0.3, "")
+    return TranslateResponse(translated=result["answer"], model=result["model"])
+
+
+# ==================== CSV 数据可视化（模块六） ====================
+class VisualizeRequest(BaseModel):
+    csv: str = Field(..., min_length=1, description="CSV 文本")
+
+
+class VisualizeResponse(BaseModel):
+    columns: list[str]
+    rows: list[list]
+    chart_type: str
+
+
+@app.post("/api/visualize", response_model=VisualizeResponse)
+def visualize(req: VisualizeRequest):
+    """解析 CSV，返回结构化数据与推荐图表类型。"""
+    import csv as _csv
+    reader = _csv.reader(io.StringIO(req.csv.strip()))
+    rows = [r for r in reader if r]
+    if not rows:
+        raise HTTPException(status_code=400, detail="CSV 内容为空")
+    header = rows[0]
+    data = rows[1:]
+    chart_type = "line" if len(data) > 10 else "bar"
+    return VisualizeResponse(columns=header, rows=data, chart_type=chart_type)
