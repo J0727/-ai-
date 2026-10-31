@@ -5,15 +5,17 @@
 运行方式（在 backend/ 目录下执行）：
     uvicorn main:app --reload
 """
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 import os
+import io
 import time
 import hashlib
 import requests
+from pypdf import PdfReader
 
 # 加载环境变量（无论从哪个目录启动，都定位到 backend/.env）
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
@@ -61,7 +63,17 @@ class ChatResponse(BaseModel):
 
 
 # ==================== DeepSeek API 调用（带超时重试） ====================
-def call_deepseek(question: str, temperature: float, retries: int = 2) -> dict:
+def _build_system_prompt(context: str = "") -> str:
+    base = "你是一名严谨的科研助手，擅长文献综述、学术思路梳理与实验设计，回答时请给出结构化、可核验的结论。"
+    if context:
+        base += (
+            "\n\n【检索到的文献片段】\n" + context
+            + "\n\n请优先依据以上文献片段作答，并在回答中注明依据；若片段不足以回答，请明确说明。"
+        )
+    return base
+
+
+def call_deepseek(question: str, temperature: float, context: str = "", retries: int = 2) -> dict:
     """调用 DeepSeek Chat API，失败时按指数退避重试。"""
     api_key = os.getenv("DEEPSEEK_API_KEY")
     if not api_key:
@@ -77,10 +89,7 @@ def call_deepseek(question: str, temperature: float, retries: int = 2) -> dict:
     payload = {
         "model": DEFAULT_MODEL,
         "messages": [
-            {
-                "role": "system",
-                "content": "你是一名严谨的科研助手，擅长文献综述、学术思路梳理与实验设计，回答时请给出结构化、可核验的结论。",
-            },
+            {"role": "system", "content": _build_system_prompt(context)},
             {"role": "user", "content": question},
         ],
         "temperature": temperature,
@@ -121,8 +130,17 @@ def health():
 
 @app.post("/api/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
-    """真实 DeepSeek 对话接口。"""
-    return call_deepseek(request.question, request.temperature)
+    """真实 DeepSeek 对话接口（若向量库中有文献，会自动带上检索到的上下文）。"""
+    context = ""
+    if chromadb is not None:
+        try:
+            col = _get_collection()
+            res = col.query(query_embeddings=[_hash_embed(request.question)], n_results=3)
+            docs = res.get("documents", [[]])[0]
+            context = "\n\n".join(d for d in docs if d)
+        except Exception:
+            context = ""
+    return call_deepseek(request.question, request.temperature, context)
 
 
 # ==================== RAG 文献检索（ChromaDB 向量库） ====================
@@ -200,3 +218,56 @@ def rag_search(req: SearchRequest):
     result = col.query(query_embeddings=[_hash_embed(req.query)], n_results=req.top_k)
     docs = result.get("documents", [[]])[0]
     return {"results": docs}
+
+
+# ==================== PDF 上传与解析 ====================
+class UploadResponse(BaseModel):
+    ok: bool
+    filename: str
+    num_pages: int
+    num_chunks: int
+
+
+def chunk_text(text: str, size: int = 500, overlap: int = 50) -> list[str]:
+    """把长文本切成带重叠的片段，便于向量检索。"""
+    text = " ".join(text.split())
+    if not text:
+        return []
+    step = max(1, size - overlap)
+    chunks = []
+    for i in range(0, len(text), step):
+        chunk = text[i:i + size]
+        if chunk:
+            chunks.append(chunk)
+        if i + size >= len(text):
+            break
+    return chunks
+
+
+@app.post("/api/upload", response_model=UploadResponse)
+async def upload_pdf(file: UploadFile = File(...)):
+    """上传 PDF 文献：提取文本 → 切片 → 写入向量库，供后续问答检索。"""
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="只支持 PDF 文件")
+    content = await file.read()
+    try:
+        reader = PdfReader(io.BytesIO(content))
+        num_pages = len(reader.pages)
+        text = "\n".join((page.extract_text() or "") for page in reader.pages)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"PDF 解析失败：{e}")
+    if not text.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="未提取到文本，可能是扫描件 PDF（需 OCR，当前版本暂不支持）",
+        )
+    chunks = chunk_text(text)
+    col = _get_collection()
+    for i, ch in enumerate(chunks):
+        col.upsert(
+            ids=[f"{file.filename}#{i}"],
+            documents=[ch],
+            embeddings=[_hash_embed(ch)],
+            metadatas=[{"source": file.filename, "chunk": i}],
+        )
+    return UploadResponse(ok=True, filename=file.filename, num_pages=num_pages, num_chunks=len(chunks))

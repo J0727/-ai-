@@ -76,10 +76,14 @@
     <main class="flex-1 flex overflow-hidden">
         <!-- 左侧边栏 -->
         <aside class="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0 hidden md:flex">
-            <div class="p-4 border-b border-slate-100">
+            <div class="p-4 border-b border-slate-100 space-y-2">
                 <button id="newProjectBtn" class="w-full bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white py-2.5 rounded-lg font-medium transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
                     <i class="fa-solid fa-plus"></i> 新建研究课题
                 </button>
+                <button id="uploadBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-file-arrow-up"></i> 上传文献 PDF
+                </button>
+                <input type="file" id="pdfInput" accept=".pdf" class="hidden">
             </div>
             <div id="projectList" class="flex-1 overflow-y-auto p-4 space-y-3">
                 <p class="text-xs text-slate-400 font-medium uppercase tracking-wider">项目历史</p>
@@ -460,6 +464,35 @@
         document.getElementById('closeSettingsBtn').addEventListener('click', closeSettings);
         document.getElementById('saveSettingsBtn').addEventListener('click', closeSettings);
         document.getElementById('settingsOverlay').addEventListener('click', closeSettings);
+
+        // ==================== PDF 文献上传 ====================
+        const uploadBtn = document.getElementById('uploadBtn');
+        const pdfInput = document.getElementById('pdfInput');
+        uploadBtn.addEventListener('click', () => pdfInput.click());
+        pdfInput.addEventListener('change', async () => {
+            const file = pdfInput.files[0];
+            if (!file) return;
+            pdfInput.value = '';
+            await uploadPdf(file);
+        });
+
+        async function uploadPdf(file) {
+            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            addMessage('ai', `正在上传并解析「${file.name}」...`);
+            const fd = new FormData();
+            fd.append('file', file);
+            try {
+                const resp = await fetch(`${apiBase}/api/upload`, { method: 'POST', body: fd });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    addMessage('ai', `上传失败：${data.detail || '未知错误'}`);
+                    return;
+                }
+                addMessage('ai', `✅ 已解析「${data.filename}」：共 ${data.num_pages} 页，切分为 ${data.num_chunks} 个片段并写入向量库。现在可以就这篇文献提问了。`);
+            } catch (e) {
+                addMessage('ai', `上传失败：${e.message}（请确认后端已启动）`);
+            }
+        }
 
         // ==================== 页面初始化 ====================
         window.addEventListener('DOMContentLoaded', () => {
