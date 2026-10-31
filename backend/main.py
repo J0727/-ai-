@@ -974,6 +974,88 @@ def plagiarism_check(req: PlagiarismRequest):
     except Exception:
         pass
 
+    # DOAJ（开放获取期刊目录）
+    try:
+        from urllib.parse import quote as _quote
+
+        resp = requests.get(
+            f"https://doaj.org/api/search/articles/{_quote(query, safe='')}",
+            params={"pageSize": 5},
+            timeout=20,
+        )
+        resp.raise_for_status()
+        for it in resp.json().get("results", []):
+            b = it.get("bibjson", {})
+            cand = (b.get("title") or "") + " " + (b.get("abstract") or "")
+            sim = float(_cosine(qvec, _hash_embed(cand)))
+            doi = b.get("doi", "") or ""
+            matches.append({
+                "source": "DOAJ",
+                "title": b.get("title", "") or "",
+                "year": str(b.get("year", "") or ""),
+                "similarity": round(sim, 3),
+                "url": f"https://doi.org/{doi}" if doi else "",
+            })
+        checked.append("DOAJ")
+    except Exception:
+        pass
+
+    # Zenodo（开放科研仓库）
+    try:
+        import re as _re
+
+        resp = requests.get(
+            "https://zenodo.org/api/records",
+            params={"q": query, "size": 5},
+            timeout=20,
+        )
+        resp.raise_for_status()
+        for h in resp.json().get("hits", {}).get("hits", []):
+            m = h.get("metadata", {})
+            desc = _re.sub(r"<[^>]+>", " ", m.get("description", "") or "")
+            cand = (m.get("title", "") or "") + " " + desc
+            sim = float(_cosine(qvec, _hash_embed(cand)))
+            matches.append({
+                "source": "Zenodo",
+                "title": m.get("title", "") or "",
+                "year": (m.get("publication_date", "") or "")[:4],
+                "similarity": round(sim, 3),
+                "url": h.get("links", {}).get("self_html", "") or "",
+            })
+        checked.append("Zenodo")
+    except Exception:
+        pass
+
+    # Crossref（全球 DOI 注册中心）
+    try:
+        resp = requests.get(
+            "https://api.crossref.org/works",
+            params={"query.bibliographic": query, "rows": 5},
+            timeout=20,
+            headers={"User-Agent": "zhihui-yantu/1.0"},
+        )
+        resp.raise_for_status()
+        for it in resp.json().get("message", {}).get("items", []):
+            year = ""
+            for k in ("published-print", "published-online", "issued"):
+                parts = (it.get(k) or {}).get("date-parts")
+                if parts and parts[0] and parts[0][0]:
+                    year = str(parts[0][0])
+                    break
+            cand = (it.get("title") or [""])[0]
+            sim = float(_cosine(qvec, _hash_embed(cand)))
+            doi = it.get("DOI", "")
+            matches.append({
+                "source": "Crossref",
+                "title": cand,
+                "year": year,
+                "similarity": round(sim, 3),
+                "url": f"https://doi.org/{doi}" if doi else "",
+            })
+        checked.append("Crossref")
+    except Exception:
+        pass
+
     matches.sort(key=lambda m: m["similarity"], reverse=True)
     top = matches[:5]
     max_sim = top[0]["similarity"] if top else 0.0
