@@ -60,6 +60,7 @@ class ChatResponse(BaseModel):
     answer: str
     model: str
     usage: dict | None = None
+    sources: list[dict] | None = None
 
 
 # ==================== DeepSeek API 调用（带超时重试） ====================
@@ -130,17 +131,29 @@ def health():
 
 @app.post("/api/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
-    """真实 DeepSeek 对话接口（若向量库中有文献，会自动带上检索到的上下文）。"""
+    """真实 DeepSeek 对话接口（若向量库中有文献，会自动带上检索到的上下文与来源）。"""
     context = ""
+    sources = []
     if chromadb is not None:
         try:
             col = _get_collection()
             res = col.query(query_embeddings=[_hash_embed(request.question)], n_results=3)
             docs = res.get("documents", [[]])[0]
+            metas = res.get("metadatas", [[]])[0]
             context = "\n\n".join(d for d in docs if d)
+            for d, m in zip(docs, metas):
+                if d:
+                    meta = m or {}
+                    sources.append({
+                        "snippet": d[:120],
+                        "source": meta.get("source", "上传文献"),
+                        "chunk": meta.get("chunk"),
+                    })
         except Exception:
             context = ""
-    return call_deepseek(request.question, request.temperature, context)
+    result = call_deepseek(request.question, request.temperature, context)
+    result["sources"] = sources or None
+    return result
 
 
 # ==================== RAG 文献检索（ChromaDB 向量库） ====================
@@ -271,3 +284,45 @@ async def upload_pdf(file: UploadFile = File(...)):
             metadatas=[{"source": file.filename, "chunk": i}],
         )
     return UploadResponse(ok=True, filename=file.filename, num_pages=num_pages, num_chunks=len(chunks))
+
+
+# ==================== 写作辅助：论文大纲生成 ====================
+class WritingRequest(BaseModel):
+    topic: str = Field(..., min_length=1, description="论文/课题主题")
+
+
+class WritingResponse(BaseModel):
+    outline: str
+    model: str
+    sources: list[dict] | None = None
+
+
+@app.post("/api/writing", response_model=WritingResponse)
+def writing_assistant(req: WritingRequest):
+    """基于已上传文献，为指定主题生成学术论文大纲（含真实来源）。"""
+    context = ""
+    sources = []
+    if chromadb is not None:
+        try:
+            col = _get_collection()
+            res = col.query(query_embeddings=[_hash_embed(req.topic)], n_results=5)
+            docs = res.get("documents", [[]])[0]
+            metas = res.get("metadatas", [[]])[0]
+            context = "\n\n".join(d for d in docs if d)
+            for d, m in zip(docs, metas):
+                if d:
+                    meta = m or {}
+                    sources.append({
+                        "snippet": d[:120],
+                        "source": meta.get("source", "上传文献"),
+                        "chunk": meta.get("chunk"),
+                    })
+        except Exception:
+            context = ""
+    prompt = (
+        f"请围绕主题「{req.topic}」撰写一份学术论文大纲，包含以下部分："
+        "摘要要点、引言要点、相关工作、方法、实验设计、预期结论。"
+        "请用 Markdown 标题层级呈现，若提供了文献片段请优先依据它们。"
+    )
+    result = call_deepseek(prompt, 0.7, context)
+    return WritingResponse(outline=result["answer"], model=result["model"], sources=sources or None)
