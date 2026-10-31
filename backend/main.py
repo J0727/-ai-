@@ -1455,3 +1455,108 @@ def delete_history(rid: int):
     conn.commit()
     conn.close()
     return {"ok": True}
+
+
+# ==================== 文献完整内容（全文/摘要） ====================
+class ArticleDetailRequest(BaseModel):
+    source: str = ""
+    url: str = ""
+    title: str = ""
+
+
+class ArticleDetailResponse(BaseModel):
+    title: str
+    authors: str
+    year: str
+    source: str
+    abstract: str
+    fulltext: str = ""
+    url: str
+    doi: str
+
+
+@app.post("/api/article-detail", response_model=ArticleDetailResponse)
+def article_detail(req: ArticleDetailRequest):
+    """获取文献完整信息（含完整摘要/正文），供详情页与翻译使用。"""
+    src = (req.source or "").lower()
+    url = req.url or ""
+    doi = ""
+
+    # arXiv：按 id 拉取完整摘要
+    if "arxiv" in src or "arxiv.org" in url:
+        import xml.etree.ElementTree as ET
+
+        m = re.search(r"(\d{4}\.\d{4,5})", url)
+        if m:
+            try:
+                r = requests.get(
+                    "http://export.arxiv.org/api/query",
+                    params={"id_list": m.group(1)},
+                    timeout=20,
+                )
+                r.raise_for_status()
+                root = ET.fromstring(r.text)
+                ns = {"a": "http://www.w3.org/2005/Atom"}
+                entry = root.find("a:entry", ns)
+                if entry is not None:
+                    abstract = (entry.findtext("a:summary", default="", namespaces=ns) or "").strip()
+                    # 尝试下载 PDF 提取完整正文
+                    fulltext = ""
+                    try:
+                        pr = requests.get(f"https://arxiv.org/pdf/{m.group(1)}", timeout=40)
+                        if pr.ok:
+                            import pymupdf as fitz
+
+                            doc = fitz.open(stream=pr.content, filetype="pdf")
+                            fulltext = "\n".join(page.get_text() for page in doc).strip()
+                    except Exception:
+                        fulltext = ""
+                    return ArticleDetailResponse(
+                        title=(entry.findtext("a:title", default="", namespaces=ns) or "").strip(),
+                        authors=", ".join(
+                            a.findtext("a:name", default="", namespaces=ns).strip()
+                            for a in entry.findall("a:author", ns)
+                        ),
+                        year=(entry.findtext("a:published", default="", namespaces=ns) or "")[:4],
+                        source="arXiv",
+                        abstract=abstract,
+                        fulltext=fulltext,
+                        url=url,
+                        doi="",
+                    )
+            except Exception:
+                pass
+
+    # OpenAlex：按 DOI 拉取完整摘要
+    m = re.search(r"doi\.org/(.+)", url)
+    if m:
+        doi = m.group(1)
+        try:
+            r = requests.get(f"https://api.openalex.org/works/https://doi.org/{doi}", timeout=20)
+            if r.ok:
+                it = r.json()
+                return ArticleDetailResponse(
+                    title=it.get("title") or req.title,
+                    authors=", ".join(
+                        a.get("author", {}).get("display_name", "")
+                        for a in (it.get("authorships") or [])[:8]
+                    ),
+                    year=str(it.get("publication_year") or ""),
+                    source="OpenAlex",
+                    abstract=_openalex_abstract(it),
+                    url=url,
+                    doi=doi,
+                )
+        except Exception:
+            pass
+
+    # 兜底：返回已知信息
+    return ArticleDetailResponse(
+        title=req.title,
+        authors="",
+        year="",
+        source=req.source,
+        abstract="",
+        url=url,
+        doi=doi,
+    )
