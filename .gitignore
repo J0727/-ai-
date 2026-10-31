@@ -13,3 +13,6 @@ venv/
 # 向量库数据
 chroma_data/
 
+# 用户数据库
+*.db
+
