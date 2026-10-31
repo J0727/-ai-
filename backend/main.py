@@ -1005,6 +1005,65 @@ def literature_search(req: LiteratureRequest):
     return LiteratureResponse(query=req.query, results=results, sources_ok=ok, sources_fail=fail)
 
 
+# ==================== 文献库自由搜索（标题/作者/片段） ====================
+class LibSearchRequest(BaseModel):
+    query: str = Field(..., min_length=1, description="搜索词：标题、作者或文献片段")
+    limit: int = Field(5, ge=1, le=20, description="每个来源返回条数")
+
+
+class LibSearchItem(BaseModel):
+    source: str
+    title: str
+    authors: str
+    year: str
+    doi: str = ""
+    url: str = ""
+    relevance: float = 0.0
+
+
+class LibSearchResponse(BaseModel):
+    query: str
+    count: int
+    results: list[LibSearchItem]
+
+
+@app.post("/api/library-search", response_model=LibSearchResponse)
+def library_search(req: LibSearchRequest):
+    """多源自由搜索：支持标题、作者、文献片段，按相关度排序。"""
+    query = req.query.strip()
+    qvec = _hash_embed(query)
+
+    raw = []
+    with ThreadPoolExecutor(max_workers=len(_LIT_SOURCES)) as ex:
+        futures = {ex.submit(fn, query, req.limit): name for name, fn in _LIT_SOURCES.items()}
+        for fut in as_completed(futures):
+            try:
+                raw.extend(fut.result())
+            except Exception:
+                pass
+
+    results = []
+    for it in raw:
+        cand = f"{it.get('title', '')} {it.get('authors', '')} {it.get('year', '')}"
+        rel = float(_cosine(qvec, _hash_embed(cand)))
+        # 精确包含加分
+        qlow = query.lower()
+        if qlow and qlow in (it.get("title", "") or "").lower():
+            rel = min(1.0, rel + 0.15)
+        results.append({
+            "source": it.get("source", ""),
+            "title": it.get("title", ""),
+            "authors": it.get("authors", ""),
+            "year": it.get("year", ""),
+            "doi": it.get("doi", ""),
+            "url": it.get("url", ""),
+            "relevance": round(rel, 3),
+        })
+
+    results.sort(key=lambda x: x["relevance"], reverse=True)
+    return LibSearchResponse(query=query, count=len(results), results=results[:20])
+
+
 # ==================== 论文查重（基于开源文献库） ====================
 class PlagiarismRequest(BaseModel):
     text: str = Field(..., min_length=20, max_length=100000, description="待查重的文本（20 ~ 100,000 字）")

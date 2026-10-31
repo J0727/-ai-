@@ -420,6 +420,10 @@
                 <h3 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-book-open mr-2 text-purple-600"></i>学科资料库</h3>
                 <button id="subjectCloseBtn" class="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg">关闭</button>
             </div>
+            <div class="flex items-center gap-2 mb-3">
+                <input id="libSearch" placeholder="搜索文献：标题、作者、或文献里的一段内容…" class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500">
+                <button id="libSearchBtn" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">搜索</button>
+            </div>
             <div class="flex-1 flex gap-4 overflow-hidden">
                 <div class="w-40 shrink-0 overflow-y-auto space-y-1 border-r border-slate-100 pr-2" id="subjectList"></div>
                 <div class="flex-1 flex flex-col overflow-hidden">
@@ -1652,6 +1656,43 @@
             m.classList.add('hidden');
             m.classList.remove('flex');
         });
+
+        // 文献库自由搜索（标题/作者/片段）
+        document.getElementById('libSearchBtn').addEventListener('click', doLibSearch);
+        document.getElementById('libSearch').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); doLibSearch(); }
+        });
+
+        async function doLibSearch() {
+            const q = document.getElementById('libSearch').value.trim();
+            if (!q) return;
+            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const box = document.getElementById('subjectItems');
+            document.getElementById('subjectChips').innerHTML = '';
+            box.innerHTML = '<p class="text-sm text-slate-400">搜索中…</p>';
+            try {
+                const resp = await fetch(`${apiBase}/api/library-search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: q, limit: 5 })
+                });
+                const data = await resp.json();
+                if (!resp.ok) { box.innerHTML = `<p class="text-sm text-red-500">${escapeHtml(data.detail || '搜索失败')}</p>`; return; }
+                box.innerHTML = `<div class="text-xs text-slate-500 mb-1">找到 ${data.count} 条相关文献（按相关度排序）</div>`;
+                (data.results || []).forEach(it => {
+                    const div = document.createElement('div');
+                    div.className = 'p-2 border border-slate-200 rounded bg-white cursor-pointer hover:border-purple-300 hover:bg-purple-50 transition-colors';
+                    div.innerHTML = `<div class="text-sm font-medium text-slate-800">${escapeHtml(it.title)}</div>
+                        <div class="text-xs text-slate-500 mt-0.5">${it.source} · ${it.year}${it.authors ? ' · ' + escapeHtml(it.authors) : ''} · 相关度 ${(it.relevance * 100).toFixed(0)}%</div>
+                        <div class="text-xs text-purple-600 mt-1">点击生成引用 →</div>`;
+                    div.onclick = () => openLitDetail(it, null);
+                    box.appendChild(div);
+                });
+                if (!(data.results || []).length) box.innerHTML = '<p class="text-sm text-slate-400">没有找到匹配文献，换个关键词试试</p>';
+            } catch (e) {
+                box.innerHTML = `<p class="text-sm text-red-500">搜索失败：${escapeHtml(e.message)}</p>`;
+            }
+        }
 
         async function loadSubjects() {
             const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
