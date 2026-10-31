@@ -405,24 +405,41 @@ def generate_survey(req: WritingRequest):
     return WritingResponse(outline=result["answer"], model=result["model"], sources=sources or None)
 
 
-# ==================== 学术翻译（模块三） ====================
+# ==================== 学术翻译（多语言） ====================
+_LANGUAGES = {
+    "en": "英语", "zh": "中文", "ja": "日语", "ko": "韩语",
+    "es": "西班牙语", "fr": "法语", "de": "德语", "ru": "俄语",
+    "ar": "阿拉伯语", "pt": "葡萄牙语", "it": "意大利语", "th": "泰语",
+    "vi": "越南语", "hi": "印地语", "id": "印尼语", "tr": "土耳其语",
+    "nl": "荷兰语", "pl": "波兰语", "uk": "乌克兰语", "sv": "瑞典语",
+}
+
+
 class TranslateRequest(BaseModel):
     text: str = Field(..., min_length=1, description="待翻译文本")
-    target: str = Field("en", description="目标语言：en 或 zh")
+    target: str = Field("en", description="目标语言代码：en/zh/ja/ko/es/fr/de/ru/ar/pt 等")
 
 
 class TranslateResponse(BaseModel):
     translated: str
     model: str
+    target_name: str = ""
+
+
+@app.get("/api/languages")
+def list_languages():
+    """返回支持的目标语言列表。"""
+    return {"languages": [{"code": k, "name": v} for k, v in _LANGUAGES.items()]}
 
 
 @app.post("/api/translate", response_model=TranslateResponse)
 def translate(req: TranslateRequest):
-    """学术文本中英互译，保留专业术语与代码。"""
-    target_name = "英文" if req.target == "en" else "中文"
+    """多语言学术互译，保留专业术语与代码。"""
+    code = (req.target or "en").lower()
+    target_name = _LANGUAGES.get(code, "英语")
     prompt = f"请将以下学术文本翻译为{target_name}，保留专业术语、公式与代码不译：\n\n{req.text}"
     result = call_deepseek(prompt, 0.3, "")
-    return TranslateResponse(translated=result["answer"], model=result["model"])
+    return TranslateResponse(translated=result["answer"], model=result["model"], target_name=target_name)
 
 
 # ==================== CSV 数据可视化（模块六） ====================

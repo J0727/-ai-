@@ -273,6 +273,10 @@
                     <i class="fa-solid fa-language text-purple-600 text-xl"></i>
                     <span class="text-xs text-slate-700">学术翻译</span>
                 </button>
+                <button id="mlBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-globe text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">多语言翻译</span>
+                </button>
                 <button id="polishBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
                     <i class="fa-solid fa-spell-check text-purple-600 text-xl"></i>
                     <span class="text-xs text-slate-700">学术润色</span>
@@ -302,7 +306,45 @@
                     <span class="text-xs text-slate-700">PDF 阅读</span>
                 </button>
             </div>
-            <p class="text-xs text-slate-400 mt-4 text-center">共 12 项科研辅助工具</p>
+            <p class="text-xs text-slate-400 mt-4 text-center">共 13 项科研辅助工具</p>
+        </div>
+    </div>
+
+    <!-- 多语言翻译弹窗 -->
+    <div id="mlModal" class="fixed inset-0 z-50 hidden items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/50"></div>
+        <div class="glass-panel relative w-full max-w-md mx-4 p-6 rounded-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-globe mr-2 text-purple-600"></i>多语言翻译</h3>
+                <button id="mlCloseBtn" class="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg">关闭</button>
+            </div>
+            <textarea id="mlText" rows="4" placeholder="输入要翻译的文本…" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500 resize-none"></textarea>
+            <div class="mt-3 flex gap-2">
+                <select id="mlLang" class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500">
+                    <option value="en">英语 English</option>
+                    <option value="zh">中文</option>
+                    <option value="ja">日语 日本語</option>
+                    <option value="ko">韩语 한국어</option>
+                    <option value="es">西班牙语 Español</option>
+                    <option value="fr">法语 Français</option>
+                    <option value="de">德语 Deutsch</option>
+                    <option value="ru">俄语 Русский</option>
+                    <option value="ar">阿拉伯语 العربية</option>
+                    <option value="pt">葡萄牙语 Português</option>
+                    <option value="it">意大利语 Italiano</option>
+                    <option value="th">泰语 ไทย</option>
+                    <option value="vi">越南语 Tiếng Việt</option>
+                    <option value="hi">印地语 हिन्दी</option>
+                    <option value="id">印尼语 Bahasa Indonesia</option>
+                    <option value="tr">土耳其语 Türkçe</option>
+                    <option value="nl">荷兰语 Nederlands</option>
+                    <option value="pl">波兰语 Polski</option>
+                    <option value="uk">乌克兰语 Українська</option>
+                    <option value="sv">瑞典语 Svenska</option>
+                </select>
+                <button id="mlGoBtn" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">翻译</button>
+            </div>
+            <div id="mlResult" class="mt-3 p-3 bg-slate-50 rounded-lg text-sm text-slate-700 min-h-[40px]"></div>
         </div>
     </div>
 
@@ -1007,6 +1049,38 @@
                 addMessage('ai', `检索失败：${e.message}（请确认后端已启动）`);
             }
         }
+
+        // ==================== 多语言翻译 ====================
+        document.getElementById('mlBtn').addEventListener('click', () => {
+            const m = document.getElementById('mlModal');
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+        });
+        document.getElementById('mlCloseBtn').addEventListener('click', () => {
+            const m = document.getElementById('mlModal');
+            m.classList.add('hidden');
+            m.classList.remove('flex');
+        });
+        document.getElementById('mlGoBtn').addEventListener('click', async () => {
+            const text = document.getElementById('mlText').value.trim();
+            const target = document.getElementById('mlLang').value;
+            const out = document.getElementById('mlResult');
+            if (!text) { out.textContent = '请输入要翻译的文本'; return; }
+            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            out.textContent = '翻译中...';
+            try {
+                const resp = await fetch(`${apiBase}/api/translate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text, target })
+                });
+                const data = await resp.json();
+                if (!resp.ok) { out.textContent = '失败：' + (data.detail || '未知错误'); return; }
+                out.textContent = data.translated || '';
+            } catch (e) {
+                out.textContent = '失败：' + e.message + '（请确认后端已启动）';
+            }
+        });
 
         // ==================== 页面初始化 ====================
         window.addEventListener('DOMContentLoaded', () => {
