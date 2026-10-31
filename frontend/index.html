@@ -763,7 +763,11 @@
                 if (!resp.ok) { addMessage('ai', `检索失败：${data.detail || '未知错误'}`); return; }
                 const list = (data.papers || []).map((p, i) => `${i + 1}. **${p.title}**（${p.published}）\n   ${p.summary.slice(0, 100)}...`).join('\n\n');
                 const tag = data.source === 'offline_sample' ? '（离线示例，网络不通）' : '';
-                addMessage('ai', `**arXiv 检索结果${tag}**\n\n${list || '无结果'}\n\n结果已写入向量库，可直接就这些论文提问。`);
+                const hasPapers = (data.papers || []).length > 0;
+                const extra = hasPapers
+                    ? '\n\n结果已写入向量库，可直接就这些论文提问。'
+                    : '\n\n（没有检索到论文。arXiv 只认英文关键词，试试 transformer、large language model 等）';
+                addMessage('ai', `**arXiv 检索结果${tag}**\n\n${list || '无结果'}${extra}`);
             } catch (e) {
                 loading.remove();
                 addMessage('ai', `检索失败：${e.message}（请确认后端已启动）`);
