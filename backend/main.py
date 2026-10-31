@@ -14,11 +14,34 @@ import os
 import io
 import time
 import hashlib
+import secrets
+import sqlite3
+from datetime import datetime
 import requests
 from pypdf import PdfReader
 
 # 加载环境变量（无论从哪个目录启动，都定位到 backend/.env）
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+
+# ==================== 用户数据库（SQLite 持久化） ====================
+_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "users.db")
+
+
+def _init_user_db():
+    conn = sqlite3.connect(_DB_PATH)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS users ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "username TEXT UNIQUE NOT NULL, "
+        "password_hash TEXT NOT NULL, "
+        "created_at TEXT NOT NULL, "
+        "last_login TEXT)"
+    )
+    conn.commit()
+    conn.close()
+
+
+_init_user_db()
 
 app = FastAPI(title="智汇研途 API", version="1.0.0", docs_url=None)
 
@@ -921,3 +944,71 @@ def plagiarism_check(req: PlagiarismRequest):
         matches=top,
         sources_checked=checked,
     )
+
+
+# ==================== 用户注册 / 登录 / 资料库 ====================
+class AuthRequest(BaseModel):
+    username: str = Field(..., min_length=2, max_length=32, description="用户名")
+    password: str = Field(..., min_length=4, max_length=64, description="密码")
+
+
+class AuthResponse(BaseModel):
+    ok: bool
+    username: str
+    token: str
+    message: str = ""
+
+
+def _hash_pw(pw: str) -> str:
+    return hashlib.sha256(pw.encode("utf-8")).hexdigest()
+
+
+@app.post("/api/register", response_model=AuthResponse)
+def register(req: AuthRequest):
+    """用户注册，信息持久化到 SQLite。"""
+    conn = sqlite3.connect(_DB_PATH)
+    try:
+        conn.execute(
+            "INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)",
+            (req.username, _hash_pw(req.password), datetime.now().isoformat(timespec="seconds")),
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=400, detail="用户名已存在")
+    finally:
+        conn.close()
+    return AuthResponse(ok=True, username=req.username, token=secrets.token_hex(16), message="注册成功")
+
+
+@app.post("/api/login", response_model=AuthResponse)
+def login(req: AuthRequest):
+    """用户登录，校验密码并更新最近登录时间。"""
+    conn = sqlite3.connect(_DB_PATH)
+    row = conn.execute("SELECT password_hash FROM users WHERE username=?", (req.username,)).fetchone()
+    if not row or row[0] != _hash_pw(req.password):
+        conn.close()
+        raise HTTPException(status_code=401, detail="用户名或密码错误")
+    conn.execute(
+        "UPDATE users SET last_login=? WHERE username=?",
+        (datetime.now().isoformat(timespec="seconds"), req.username),
+    )
+    conn.commit()
+    conn.close()
+    return AuthResponse(ok=True, username=req.username, token=secrets.token_hex(16), message="登录成功")
+
+
+@app.get("/api/users")
+def list_users():
+    """用户资料库：返回全部注册用户（演示用）。"""
+    conn = sqlite3.connect(_DB_PATH)
+    rows = conn.execute(
+        "SELECT id, username, created_at, last_login FROM users ORDER BY id DESC"
+    ).fetchall()
+    conn.close()
+    return {
+        "count": len(rows),
+        "users": [
+            {"id": r[0], "username": r[1], "created_at": r[2], "last_login": r[3]}
+            for r in rows
+        ],
+    }

@@ -62,6 +62,9 @@
             </div>
         </div>
         <div class="flex items-center gap-3">
+            <button id="authBtn" class="text-xs bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-200 transition-colors">
+                <i class="fa-solid fa-user mr-1"></i><span id="authLabel">登录 / 注册</span>
+            </button>
             <select id="uiLang" class="text-xs bg-slate-100 rounded-lg px-2 py-1.5 outline-none text-slate-600 border border-slate-200">
                 <option value="zh">中文</option>
                 <option value="en">English</option>
@@ -376,6 +379,26 @@
                 <button id="plagGoBtn" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">开始查重</button>
             </div>
             <div id="plagResult" class="mt-3 p-3 bg-slate-50 rounded-lg text-sm text-slate-700 min-h-[60px] max-h-[300px] overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <!-- 登录/注册弹窗 -->
+    <div id="authModal" class="fixed inset-0 z-50 hidden items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/50"></div>
+        <div class="glass-panel relative w-full max-w-sm mx-4 p-6 rounded-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-user mr-2 text-purple-600"></i>登录 / 注册</h3>
+                <button id="authCloseBtn" class="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg">关闭</button>
+            </div>
+            <input id="authUser" placeholder="用户名（至少 2 位）" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500 mb-2">
+            <input id="authPass" type="password" placeholder="密码（至少 4 位）" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500">
+            <div id="authMsg" class="text-xs mt-2 min-h-[16px]"></div>
+            <div class="flex gap-2 mt-2">
+                <button id="authLoginBtn" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-sm">登录</button>
+                <button id="authRegBtn" class="flex-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2 rounded-lg text-sm">注册</button>
+            </div>
+            <button id="authUsersBtn" class="w-full mt-3 text-xs text-slate-500 underline">查看用户资料库</button>
+            <div id="authUsersList" class="mt-2 text-xs text-slate-600 max-h-40 overflow-y-auto"></div>
         </div>
     </div>
 
@@ -1281,6 +1304,79 @@
                 out.innerHTML = html;
             } catch (e) {
                 out.textContent = '失败：' + e.message;
+            }
+        });
+
+        // ==================== 登录 / 注册 ====================
+        const authModal = document.getElementById('authModal');
+        const authLabel = document.getElementById('authLabel');
+        try {
+            const savedUser = localStorage.getItem('zhihui_user');
+            if (savedUser) authLabel.textContent = savedUser;
+        } catch (e) {}
+
+        document.getElementById('authBtn').addEventListener('click', () => {
+            authModal.classList.remove('hidden');
+            authModal.classList.add('flex');
+        });
+        document.getElementById('authCloseBtn').addEventListener('click', () => {
+            authModal.classList.add('hidden');
+            authModal.classList.remove('flex');
+        });
+
+        async function doAuth(path) {
+            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const username = document.getElementById('authUser').value.trim();
+            const password = document.getElementById('authPass').value;
+            const msg = document.getElementById('authMsg');
+            if (!username || !password) {
+                msg.textContent = '请填写用户名和密码';
+                msg.className = 'text-xs mt-2 text-red-600';
+                return;
+            }
+            try {
+                const resp = await fetch(`${apiBase}/api/${path}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    msg.textContent = data.detail || '失败';
+                    msg.className = 'text-xs mt-2 text-red-600';
+                    return;
+                }
+                try {
+                    localStorage.setItem('zhihui_user', data.username);
+                    localStorage.setItem('zhihui_token', data.token);
+                } catch (e) {}
+                authLabel.textContent = data.username;
+                msg.textContent = data.message;
+                msg.className = 'text-xs mt-2 text-green-600';
+                setTimeout(() => {
+                    authModal.classList.add('hidden');
+                    authModal.classList.remove('flex');
+                }, 800);
+            } catch (e) {
+                msg.textContent = '失败：' + e.message;
+                msg.className = 'text-xs mt-2 text-red-600';
+            }
+        }
+        document.getElementById('authLoginBtn').addEventListener('click', () => doAuth('login'));
+        document.getElementById('authRegBtn').addEventListener('click', () => doAuth('register'));
+
+        document.getElementById('authUsersBtn').addEventListener('click', async () => {
+            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const list = document.getElementById('authUsersList');
+            list.textContent = '加载中...';
+            try {
+                const resp = await fetch(`${apiBase}/api/users`);
+                const data = await resp.json();
+                list.innerHTML = (data.users || []).map(u =>
+                    `<div class="py-1 border-b border-slate-100">#${u.id} ${escapeHtml(u.username)} · 注册 ${(u.created_at || '').slice(0, 10)} · 登录 ${(u.last_login || '-').slice(0, 10)}</div>`
+                ).join('') || '暂无用户';
+            } catch (e) {
+                list.textContent = '加载失败：' + e.message;
             }
         });
 
