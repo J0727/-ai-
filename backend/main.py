@@ -901,6 +901,7 @@ def plagiarism_check(req: PlagiarismRequest):
     text = req.text.strip()
     qvec = _hash_embed(text)
     query = text[:180]
+    kw = " ".join(text.split()[:12])  # 关键词查询（PubMed/OpenAIRE 用）
 
     matches = []
     checked = []
@@ -1053,6 +1054,74 @@ def plagiarism_check(req: PlagiarismRequest):
                 "url": f"https://doi.org/{doi}" if doi else "",
             })
         checked.append("Crossref")
+    except Exception:
+        pass
+
+    # OpenAIRE（欧洲开放科学汇聚平台）
+    try:
+        def _oaf_val(v):
+            if isinstance(v, list):
+                v = v[0] if v else None
+            if isinstance(v, dict):
+                return v.get("$", "") or ""
+            return v or ""
+
+        resp = requests.get(
+            "https://api.openaire.eu/search/publications",
+            params={"title": kw, "size": 5, "format": "json"},
+            timeout=20,
+        )
+        resp.raise_for_status()
+        _rjson = resp.json() or {}
+        _res_obj = ((_rjson.get("response") or {}).get("results") or {}).get("result") or []
+        res = [_res_obj] if isinstance(_res_obj, dict) else _res_obj
+        for it in res:
+            oaf = (it.get("metadata") or {}).get("oaf:entity", {}).get("oaf:result", {}) or {}
+            title = _oaf_val(oaf.get("title"))
+            desc = _oaf_val(oaf.get("description"))
+            date = _oaf_val(oaf.get("dateofacceptance"))
+            cand = title + " " + desc
+            sim = float(_cosine(qvec, _hash_embed(cand)))
+            matches.append({
+                "source": "OpenAIRE",
+                "title": title,
+                "year": (date or "")[:4],
+                "similarity": round(sim, 3),
+                "url": "",
+            })
+        checked.append("OpenAIRE")
+    except Exception:
+        pass
+
+    # PubMed（美国国立医学图书馆）
+    try:
+        r = requests.get(
+            "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
+            params={"db": "pubmed", "term": kw, "retmode": "json", "retmax": 5},
+            timeout=20,
+        )
+        r.raise_for_status()
+        ids = r.json().get("esearchresult", {}).get("idlist", [])
+        if ids:
+            r2 = requests.get(
+                "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi",
+                params={"db": "pubmed", "id": ",".join(ids), "retmode": "json"},
+                timeout=20,
+            )
+            r2.raise_for_status()
+            d = r2.json().get("result", {})
+            for pid in ids:
+                rec = d.get(pid, {})
+                title = rec.get("title", "") or ""
+                sim = float(_cosine(qvec, _hash_embed(title)))
+                matches.append({
+                    "source": "PubMed",
+                    "title": title.rstrip("."),
+                    "year": (rec.get("pubdate", "") or "")[:4],
+                    "similarity": round(sim, 3),
+                    "url": f"https://pubmed.ncbi.nlm.nih.gov/{pid}/",
+                })
+            checked.append("PubMed")
     except Exception:
         pass
 
