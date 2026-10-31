@@ -436,11 +436,19 @@ class VisualizeResponse(BaseModel):
     chart_type: str
 
 
+def _normalize_csv(text: str) -> str:
+    """兼容「斜杠分隔」的单行写法：若没有换行但有 /，把 / 当作行分隔。"""
+    text = text.strip()
+    if "\n" not in text and "/" in text:
+        text = text.replace("/", "\n")
+    return text
+
+
 @app.post("/api/visualize", response_model=VisualizeResponse)
 def visualize(req: VisualizeRequest):
     """解析 CSV，返回结构化数据与推荐图表类型。"""
     import csv as _csv
-    reader = _csv.reader(io.StringIO(req.csv.strip()))
+    reader = _csv.reader(io.StringIO(_normalize_csv(req.csv)))
     rows = [r for r in reader if r]
     if not rows:
         raise HTTPException(status_code=400, detail="CSV 内容为空")
@@ -463,7 +471,7 @@ class LatexResponse(BaseModel):
 def generate_latex(req: LatexRequest):
     """把 CSV 转成可直接编译的 LaTeX 表格代码。"""
     import csv as _csv
-    reader = _csv.reader(io.StringIO(req.csv.strip()))
+    reader = _csv.reader(io.StringIO(_normalize_csv(req.csv)))
     rows = [r for r in reader if r]
     if not rows:
         raise HTTPException(status_code=400, detail="CSV 内容为空")
