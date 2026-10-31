@@ -249,6 +249,7 @@
             <h3 class="text-lg font-bold text-slate-800 mb-1">引用图谱</h3>
             <p id="graphInfo" class="text-xs text-slate-500 mb-3">正在生成...</p>
             <canvas id="graphCanvas" width="600" height="420" class="w-full border border-slate-200 rounded-lg bg-slate-50"></canvas>
+            <p class="text-xs text-slate-500 mt-2">● 紫色 = 文献片段　● <span style="color:#dc2626">红色</span> = 基石节点（被引用最多的核心片段）</p>
             <div class="flex justify-end mt-4">
                 <button id="closeGraphBtn" class="px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg">关闭</button>
             </div>
@@ -640,21 +641,35 @@
                     const angle = (2 * Math.PI * i) / Math.max(1, nodes.length);
                     pos[n.id] = { x: cx + R * Math.cos(angle), y: cy + R * Math.sin(angle) };
                 });
-                ctx.strokeStyle = 'rgba(124, 58, 237, 0.25)';
-                edges.forEach(e => {
+                // 只画权重最高的 80 条边，避免图过密
+                const drawEdges = edges.slice().sort((a, b) => b.weight - a.weight).slice(0, 80);
+                ctx.strokeStyle = 'rgba(124, 58, 237, 0.18)';
+                drawEdges.forEach(e => {
                     const a = pos[e.source], b = pos[e.target];
                     if (!a || !b) return;
-                    ctx.lineWidth = 1 + (e.weight || 0);
+                    ctx.lineWidth = 0.5 + e.weight * 2;
                     ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
                 });
+                let hubPos = null;
                 nodes.forEach(n => {
                     const p = pos[n.id];
                     const isHub = n.id === data.hub;
+                    if (isHub) hubPos = p;
                     ctx.beginPath();
-                    ctx.arc(p.x, p.y, isHub ? 11 : 6, 0, 2 * Math.PI);
+                    ctx.arc(p.x, p.y, isHub ? 16 : 6, 0, 2 * Math.PI);
                     ctx.fillStyle = isHub ? '#dc2626' : '#7c3aed';
                     ctx.fill();
+                    if (isHub) {
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+                    }
                 });
+                if (hubPos) {
+                    ctx.fillStyle = '#dc2626';
+                    ctx.font = 'bold 15px sans-serif';
+                    ctx.fillText('基石节点', hubPos.x + 22, hubPos.y + 6);
+                }
                 info.textContent = `节点 ${nodes.length} 个 · 连线 ${edges.length} 条 · 基石节点 ${data.hub || '无'}`;
             } catch (e) {
                 info.textContent = '生成失败：' + e.message;
