@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 import os
 import io
+import re
 import time
 import hashlib
 import secrets
@@ -875,12 +876,39 @@ class PlagiarismMatch(BaseModel):
     url: str
 
 
+class PlagiarismParagraph(BaseModel):
+    text: str
+    similarity: float
+
+
 class PlagiarismResponse(BaseModel):
     text_len: int
     max_similarity: float
     risk_level: str
     matches: list[PlagiarismMatch]
+    paragraphs: list[PlagiarismParagraph] = []
     sources_checked: list[str]
+
+
+def _split_paragraphs(text: str, max_len: int = 300) -> list[str]:
+    """把长文本切分为段落（兼顾换行与句子边界）。"""
+    raw = [p.strip() for p in re.split(r"\n\s*\n|\n", text) if p.strip()]
+    out = []
+    for p in raw:
+        if len(p) <= max_len:
+            out.append(p)
+            continue
+        sents = re.split(r"(?<=[。！？.!?])\s*", p)
+        buf = ""
+        for s in sents:
+            if len(buf) + len(s) > max_len and buf:
+                out.append(buf.strip())
+                buf = s
+            else:
+                buf += s
+        if buf.strip():
+            out.append(buf.strip())
+    return out
 
 
 def _openalex_abstract(it) -> str:
@@ -900,8 +928,9 @@ def plagiarism_check(req: PlagiarismRequest):
     """基于 OpenAlex / arXiv / Europe PMC 开源文献库做相似度查重。"""
     text = req.text.strip()
     qvec = _hash_embed(text)
-    query = text[:180]
-    kw = " ".join(text.split()[:12])  # 关键词查询（PubMed/OpenAIRE 用）
+    _flat = " ".join(text.split())
+    query = _flat[:180]
+    kw = " ".join(_flat.split()[:12])  # 关键词查询（PubMed/OpenAIRE 用）
 
     matches = []
     checked = []
@@ -1128,6 +1157,24 @@ def plagiarism_check(req: PlagiarismRequest):
     matches.sort(key=lambda m: m["similarity"], reverse=True)
     top = matches[:5]
     max_sim = top[0]["similarity"] if top else 0.0
+
+    # 段落级相似度：把全文按段落切分，逐段比对候选文献标题
+    para_scores = []
+    if top:
+        cand_vecs = [(m, _hash_embed(m["title"])) for m in top]
+        for p in _split_paragraphs(text):
+            if len(p) < 30:
+                continue
+            pvec = _hash_embed(p)
+            best = 0.0
+            for m, cvec in cand_vecs:
+                s = float(_cosine(pvec, cvec))
+                if s > best:
+                    best = s
+            para_scores.append(PlagiarismParagraph(text=p[:200], similarity=round(best, 3)))
+        para_scores.sort(key=lambda x: x.similarity, reverse=True)
+        para_scores = para_scores[:5]
+
     risk = "高" if max_sim >= 0.6 else ("中" if max_sim >= 0.4 else "低")
 
     return PlagiarismResponse(
@@ -1135,8 +1182,31 @@ def plagiarism_check(req: PlagiarismRequest):
         max_similarity=max_sim,
         risk_level=risk,
         matches=top,
+        paragraphs=para_scores,
         sources_checked=checked,
     )
+
+
+@app.post("/api/extract-text")
+async def extract_text(file: UploadFile = File(...)):
+    """提取上传文件（PDF/TXT/MD）的纯文本，供整篇论文查重使用。"""
+    content = await file.read()
+    name = (file.filename or "").lower()
+    if name.endswith(".pdf"):
+        text = ""
+        try:
+            reader = PdfReader(io.BytesIO(content))
+            text = "\n".join((page.extract_text() or "") for page in reader.pages)
+        except Exception:
+            text = ""
+        if len(text.strip()) < 50:
+            try:
+                text = _ocr_pdf(content)
+            except Exception:
+                pass
+    else:
+        text = content.decode("utf-8", errors="ignore")
+    return {"text": text, "chars": len(text)}
 
 
 # ==================== 用户注册 / 登录 / 资料库 ====================
