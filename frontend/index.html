@@ -80,38 +80,8 @@
                 <button id="newProjectBtn" class="w-full bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white py-2.5 rounded-lg font-medium transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
                     <i class="fa-solid fa-plus"></i> 新建研究课题
                 </button>
-                <button id="uploadBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-file-arrow-up"></i> 上传文献 PDF
-                </button>
-                <button id="outlineBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-pen-ruler"></i> 生成论文大纲
-                </button>
-                <button id="surveyBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-book-open-reader"></i> 生成文献综述
-                </button>
-                <button id="graphBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-diagram-project"></i> 引用图谱
-                </button>
-                <button id="translateBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-language"></i> 学术翻译
-                </button>
-                <button id="polishBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-spell-check"></i> 学术润色
-                </button>
-                <button id="citeBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-quote-right"></i> 文献纠错
-                </button>
-                <button id="csvBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-chart-column"></i> CSV 图表
-                </button>
-                <button id="arxivBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-magnifying-glass-chart"></i> arXiv 检索
-                </button>
-                <button id="latexBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-square-root-variable"></i> LaTeX 表格
-                </button>
-                <button id="readerBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-file-pdf"></i> PDF 版式阅读
+                <button id="toolboxBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-toolbox"></i> 工具箱
                 </button>
                 <input type="file" id="pdfInput" accept=".pdf" class="hidden">
                 <input type="file" id="readerInput" accept=".pdf" class="hidden">
@@ -271,6 +241,64 @@
                 <button id="closeReaderBtn" class="px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg">关闭</button>
             </div>
             <iframe id="readerFrame" class="flex-1 w-full rounded-lg border border-slate-200 bg-white"></iframe>
+        </div>
+    </div>
+
+    <!-- 工具箱弹窗 -->
+    <div id="toolboxModal" class="fixed inset-0 z-50 hidden items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/50"></div>
+        <div class="glass-panel relative w-full max-w-lg mx-4 p-6 rounded-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-toolbox mr-2 text-purple-600"></i>工具箱</h3>
+                <button id="closeToolboxBtn" class="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg">关闭</button>
+            </div>
+            <div id="toolboxGrid" class="grid grid-cols-3 gap-3">
+                <button id="uploadBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-file-arrow-up text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">上传文献</span>
+                </button>
+                <button id="outlineBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-pen-ruler text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">论文大纲</span>
+                </button>
+                <button id="surveyBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-book-open-reader text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">文献综述</span>
+                </button>
+                <button id="graphBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-diagram-project text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">引用图谱</span>
+                </button>
+                <button id="translateBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-language text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">学术翻译</span>
+                </button>
+                <button id="polishBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-spell-check text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">学术润色</span>
+                </button>
+                <button id="citeBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-quote-right text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">文献纠错</span>
+                </button>
+                <button id="csvBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-chart-column text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">CSV 图表</span>
+                </button>
+                <button id="arxivBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-magnifying-glass-chart text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">arXiv 检索</span>
+                </button>
+                <button id="latexBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-square-root-variable text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">LaTeX 表格</span>
+                </button>
+                <button id="readerBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-file-pdf text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">PDF 阅读</span>
+                </button>
+            </div>
+            <p class="text-xs text-slate-400 mt-4 text-center">共 11 项科研辅助工具</p>
         </div>
     </div>
 
@@ -914,6 +942,24 @@
                 addMessage('ai', `校验失败：${e.message}（请确认后端已启动）`);
             }
         }
+
+        // ==================== 工具箱 ====================
+        const toolboxModal = document.getElementById('toolboxModal');
+        document.getElementById('toolboxBtn').addEventListener('click', () => {
+            toolboxModal.classList.remove('hidden');
+            toolboxModal.classList.add('flex');
+        });
+        document.getElementById('closeToolboxBtn').addEventListener('click', closeToolbox);
+        toolboxModal.addEventListener('click', (e) => {
+            if (!e.target.closest('.glass-panel')) closeToolbox();
+        });
+        function closeToolbox() {
+            toolboxModal.classList.add('hidden');
+            toolboxModal.classList.remove('flex');
+        }
+        document.querySelectorAll('#toolboxGrid button').forEach(btn => {
+            btn.addEventListener('click', () => closeToolbox());
+        });
 
         // ==================== 页面初始化 ====================
         window.addEventListener('DOMContentLoaded', () => {
