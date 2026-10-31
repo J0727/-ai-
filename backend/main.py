@@ -865,7 +865,7 @@ def literature_search(req: LiteratureRequest):
 
 # ==================== 论文查重（基于开源文献库） ====================
 class PlagiarismRequest(BaseModel):
-    text: str = Field(..., min_length=20, description="待查重的文本（至少 20 字）")
+    text: str = Field(..., min_length=20, max_length=100000, description="待查重的文本（20 ~ 100,000 字）")
 
 
 class PlagiarismMatch(BaseModel):
@@ -923,236 +923,242 @@ def _openalex_abstract(it) -> str:
     return " ".join(w for _, w in pairs)
 
 
+def _plag_openalex(qvec, query, kw):
+    resp = requests.get(
+        "https://api.openalex.org/works",
+        params={"search": query, "per-page": 5},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    out = []
+    for it in resp.json().get("results", []):
+        cand = (it.get("title") or "") + " " + _openalex_abstract(it)
+        out.append({
+            "source": "OpenAlex",
+            "title": it.get("title") or "",
+            "year": str(it.get("publication_year") or ""),
+            "similarity": round(float(_cosine(qvec, _hash_embed(cand))), 3),
+            "url": it.get("doi") or "",
+        })
+    return out
+
+
+def _plag_arxiv(qvec, query, kw):
+    import xml.etree.ElementTree as ET
+
+    resp = requests.get(
+        "http://export.arxiv.org/api/query",
+        params={"search_query": f"all:{query}", "max_results": 5},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    root = ET.fromstring(resp.text)
+    ns = {"a": "http://www.w3.org/2005/Atom"}
+    out = []
+    for entry in root.findall("a:entry", ns):
+        title = (entry.findtext("a:title", default="", namespaces=ns) or "").strip()
+        summary = (entry.findtext("a:summary", default="", namespaces=ns) or "").strip()
+        out.append({
+            "source": "arXiv",
+            "title": title,
+            "year": (entry.findtext("a:published", default="", namespaces=ns) or "")[:4],
+            "similarity": round(float(_cosine(qvec, _hash_embed(title + " " + summary))), 3),
+            "url": (entry.findtext("a:id", default="", namespaces=ns) or "").strip(),
+        })
+    return out
+
+
+def _plag_europepmc(qvec, query, kw):
+    resp = requests.get(
+        "https://www.ebi.ac.uk/europepmc/webservices/rest/search",
+        params={"query": query, "format": "json", "pageSize": 5},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    out = []
+    for it in resp.json().get("resultList", {}).get("result", []):
+        cand = (it.get("title") or "") + " " + (it.get("abstractText") or "")
+        doi = it.get("doi", "")
+        out.append({
+            "source": "Europe PMC",
+            "title": it.get("title", ""),
+            "year": str(it.get("pubYear", "")),
+            "similarity": round(float(_cosine(qvec, _hash_embed(cand))), 3),
+            "url": f"https://doi.org/{doi}" if doi else "",
+        })
+    return out
+
+
+def _plag_doaj(qvec, query, kw):
+    from urllib.parse import quote as _quote
+
+    resp = requests.get(
+        f"https://doaj.org/api/search/articles/{_quote(query, safe='')}",
+        params={"pageSize": 5},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    out = []
+    for it in resp.json().get("results", []):
+        b = it.get("bibjson", {})
+        cand = (b.get("title") or "") + " " + (b.get("abstract") or "")
+        doi = b.get("doi", "") or ""
+        out.append({
+            "source": "DOAJ",
+            "title": b.get("title", "") or "",
+            "year": str(b.get("year", "") or ""),
+            "similarity": round(float(_cosine(qvec, _hash_embed(cand))), 3),
+            "url": f"https://doi.org/{doi}" if doi else "",
+        })
+    return out
+
+
+def _plag_zenodo(qvec, query, kw):
+    resp = requests.get(
+        "https://zenodo.org/api/records",
+        params={"q": query, "size": 5},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    out = []
+    for h in resp.json().get("hits", {}).get("hits", []):
+        m = h.get("metadata", {})
+        desc = re.sub(r"<[^>]+>", " ", m.get("description", "") or "")
+        cand = (m.get("title", "") or "") + " " + desc
+        out.append({
+            "source": "Zenodo",
+            "title": m.get("title", "") or "",
+            "year": (m.get("publication_date", "") or "")[:4],
+            "similarity": round(float(_cosine(qvec, _hash_embed(cand))), 3),
+            "url": h.get("links", {}).get("self_html", "") or "",
+        })
+    return out
+
+
+def _plag_crossref(qvec, query, kw):
+    resp = requests.get(
+        "https://api.crossref.org/works",
+        params={"query.bibliographic": query, "rows": 5},
+        timeout=15,
+        headers={"User-Agent": "zhihui-yantu/1.0"},
+    )
+    resp.raise_for_status()
+    out = []
+    for it in resp.json().get("message", {}).get("items", []):
+        year = ""
+        for k in ("published-print", "published-online", "issued"):
+            parts = (it.get(k) or {}).get("date-parts")
+            if parts and parts[0] and parts[0][0]:
+                year = str(parts[0][0])
+                break
+        title = (it.get("title") or [""])[0]
+        doi = it.get("DOI", "")
+        out.append({
+            "source": "Crossref",
+            "title": title,
+            "year": year,
+            "similarity": round(float(_cosine(qvec, _hash_embed(title))), 3),
+            "url": f"https://doi.org/{doi}" if doi else "",
+        })
+    return out
+
+
+def _plag_openaire(qvec, query, kw):
+    def _val(v):
+        if isinstance(v, list):
+            v = v[0] if v else None
+        if isinstance(v, dict):
+            return v.get("$", "") or ""
+        return v or ""
+
+    resp = requests.get(
+        "https://api.openaire.eu/search/publications",
+        params={"title": kw, "size": 5, "format": "json"},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    _rjson = resp.json() or {}
+    _res_obj = ((_rjson.get("response") or {}).get("results") or {}).get("result") or []
+    res = [_res_obj] if isinstance(_res_obj, dict) else _res_obj
+    out = []
+    for it in res:
+        oaf = (it.get("metadata") or {}).get("oaf:entity", {}).get("oaf:result", {}) or {}
+        title = _val(oaf.get("title"))
+        desc = _val(oaf.get("description"))
+        date = _val(oaf.get("dateofacceptance"))
+        out.append({
+            "source": "OpenAIRE",
+            "title": title,
+            "year": (date or "")[:4],
+            "similarity": round(float(_cosine(qvec, _hash_embed(title + " " + desc))), 3),
+            "url": "",
+        })
+    return out
+
+
+def _plag_pubmed(qvec, query, kw):
+    r = requests.get(
+        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
+        params={"db": "pubmed", "term": kw, "retmode": "json", "retmax": 5},
+        timeout=15,
+    )
+    r.raise_for_status()
+    ids = r.json().get("esearchresult", {}).get("idlist", [])
+    if not ids:
+        return []
+    r2 = requests.get(
+        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi",
+        params={"db": "pubmed", "id": ",".join(ids), "retmode": "json"},
+        timeout=15,
+    )
+    r2.raise_for_status()
+    d = r2.json().get("result", {})
+    out = []
+    for pid in ids:
+        rec = d.get(pid, {})
+        title = (rec.get("title", "") or "").rstrip(".")
+        out.append({
+            "source": "PubMed",
+            "title": title,
+            "year": (rec.get("pubdate", "") or "")[:4],
+            "similarity": round(float(_cosine(qvec, _hash_embed(title))), 3),
+            "url": f"https://pubmed.ncbi.nlm.nih.gov/{pid}/",
+        })
+    return out
+
+
+_PLAG_SOURCES = {
+    "OpenAlex": _plag_openalex,
+    "arXiv": _plag_arxiv,
+    "Europe PMC": _plag_europepmc,
+    "DOAJ": _plag_doaj,
+    "Zenodo": _plag_zenodo,
+    "Crossref": _plag_crossref,
+    "OpenAIRE": _plag_openaire,
+    "PubMed": _plag_pubmed,
+}
+
+
 @app.post("/api/plagiarism-check", response_model=PlagiarismResponse)
 def plagiarism_check(req: PlagiarismRequest):
-    """基于 OpenAlex / arXiv / Europe PMC 开源文献库做相似度查重。"""
+    """整篇论文查重：并行比对 8 个开放文献库，并做段落级相似度分析。"""
     text = req.text.strip()
     qvec = _hash_embed(text)
     _flat = " ".join(text.split())
     query = _flat[:180]
-    kw = " ".join(_flat.split()[:12])  # 关键词查询（PubMed/OpenAIRE 用）
+    kw = " ".join(_flat.split()[:12])
 
     matches = []
     checked = []
-
-    try:
-        resp = requests.get(
-            "https://api.openalex.org/works",
-            params={"search": query, "per-page": 5},
-            timeout=20,
-        )
-        resp.raise_for_status()
-        for it in resp.json().get("results", []):
-            cand = (it.get("title") or "") + " " + _openalex_abstract(it)
-            sim = float(_cosine(qvec, _hash_embed(cand)))
-            matches.append({
-                "source": "OpenAlex",
-                "title": it.get("title") or "",
-                "year": str(it.get("publication_year") or ""),
-                "similarity": round(sim, 3),
-                "url": it.get("doi") or "",
-            })
-        checked.append("OpenAlex")
-    except Exception:
-        pass
-
-    try:
-        import xml.etree.ElementTree as ET
-
-        resp = requests.get(
-            "http://export.arxiv.org/api/query",
-            params={"search_query": f"all:{query}", "max_results": 5},
-            timeout=20,
-        )
-        resp.raise_for_status()
-        root = ET.fromstring(resp.text)
-        ns = {"a": "http://www.w3.org/2005/Atom"}
-        for entry in root.findall("a:entry", ns):
-            title = (entry.findtext("a:title", default="", namespaces=ns) or "").strip()
-            summary = (entry.findtext("a:summary", default="", namespaces=ns) or "").strip()
-            sim = float(_cosine(qvec, _hash_embed(title + " " + summary)))
-            matches.append({
-                "source": "arXiv",
-                "title": title,
-                "year": (entry.findtext("a:published", default="", namespaces=ns) or "")[:4],
-                "similarity": round(sim, 3),
-                "url": (entry.findtext("a:id", default="", namespaces=ns) or "").strip(),
-            })
-        checked.append("arXiv")
-    except Exception:
-        pass
-
-    try:
-        resp = requests.get(
-            "https://www.ebi.ac.uk/europepmc/webservices/rest/search",
-            params={"query": query, "format": "json", "pageSize": 5},
-            timeout=20,
-        )
-        resp.raise_for_status()
-        for it in resp.json().get("resultList", {}).get("result", []):
-            cand = (it.get("title") or "") + " " + (it.get("abstractText") or "")
-            sim = float(_cosine(qvec, _hash_embed(cand)))
-            doi = it.get("doi", "")
-            matches.append({
-                "source": "Europe PMC",
-                "title": it.get("title", ""),
-                "year": str(it.get("pubYear", "")),
-                "similarity": round(sim, 3),
-                "url": f"https://doi.org/{doi}" if doi else "",
-            })
-        checked.append("Europe PMC")
-    except Exception:
-        pass
-
-    # DOAJ（开放获取期刊目录）
-    try:
-        from urllib.parse import quote as _quote
-
-        resp = requests.get(
-            f"https://doaj.org/api/search/articles/{_quote(query, safe='')}",
-            params={"pageSize": 5},
-            timeout=20,
-        )
-        resp.raise_for_status()
-        for it in resp.json().get("results", []):
-            b = it.get("bibjson", {})
-            cand = (b.get("title") or "") + " " + (b.get("abstract") or "")
-            sim = float(_cosine(qvec, _hash_embed(cand)))
-            doi = b.get("doi", "") or ""
-            matches.append({
-                "source": "DOAJ",
-                "title": b.get("title", "") or "",
-                "year": str(b.get("year", "") or ""),
-                "similarity": round(sim, 3),
-                "url": f"https://doi.org/{doi}" if doi else "",
-            })
-        checked.append("DOAJ")
-    except Exception:
-        pass
-
-    # Zenodo（开放科研仓库）
-    try:
-        import re as _re
-
-        resp = requests.get(
-            "https://zenodo.org/api/records",
-            params={"q": query, "size": 5},
-            timeout=20,
-        )
-        resp.raise_for_status()
-        for h in resp.json().get("hits", {}).get("hits", []):
-            m = h.get("metadata", {})
-            desc = _re.sub(r"<[^>]+>", " ", m.get("description", "") or "")
-            cand = (m.get("title", "") or "") + " " + desc
-            sim = float(_cosine(qvec, _hash_embed(cand)))
-            matches.append({
-                "source": "Zenodo",
-                "title": m.get("title", "") or "",
-                "year": (m.get("publication_date", "") or "")[:4],
-                "similarity": round(sim, 3),
-                "url": h.get("links", {}).get("self_html", "") or "",
-            })
-        checked.append("Zenodo")
-    except Exception:
-        pass
-
-    # Crossref（全球 DOI 注册中心）
-    try:
-        resp = requests.get(
-            "https://api.crossref.org/works",
-            params={"query.bibliographic": query, "rows": 5},
-            timeout=20,
-            headers={"User-Agent": "zhihui-yantu/1.0"},
-        )
-        resp.raise_for_status()
-        for it in resp.json().get("message", {}).get("items", []):
-            year = ""
-            for k in ("published-print", "published-online", "issued"):
-                parts = (it.get(k) or {}).get("date-parts")
-                if parts and parts[0] and parts[0][0]:
-                    year = str(parts[0][0])
-                    break
-            cand = (it.get("title") or [""])[0]
-            sim = float(_cosine(qvec, _hash_embed(cand)))
-            doi = it.get("DOI", "")
-            matches.append({
-                "source": "Crossref",
-                "title": cand,
-                "year": year,
-                "similarity": round(sim, 3),
-                "url": f"https://doi.org/{doi}" if doi else "",
-            })
-        checked.append("Crossref")
-    except Exception:
-        pass
-
-    # OpenAIRE（欧洲开放科学汇聚平台）
-    try:
-        def _oaf_val(v):
-            if isinstance(v, list):
-                v = v[0] if v else None
-            if isinstance(v, dict):
-                return v.get("$", "") or ""
-            return v or ""
-
-        resp = requests.get(
-            "https://api.openaire.eu/search/publications",
-            params={"title": kw, "size": 5, "format": "json"},
-            timeout=20,
-        )
-        resp.raise_for_status()
-        _rjson = resp.json() or {}
-        _res_obj = ((_rjson.get("response") or {}).get("results") or {}).get("result") or []
-        res = [_res_obj] if isinstance(_res_obj, dict) else _res_obj
-        for it in res:
-            oaf = (it.get("metadata") or {}).get("oaf:entity", {}).get("oaf:result", {}) or {}
-            title = _oaf_val(oaf.get("title"))
-            desc = _oaf_val(oaf.get("description"))
-            date = _oaf_val(oaf.get("dateofacceptance"))
-            cand = title + " " + desc
-            sim = float(_cosine(qvec, _hash_embed(cand)))
-            matches.append({
-                "source": "OpenAIRE",
-                "title": title,
-                "year": (date or "")[:4],
-                "similarity": round(sim, 3),
-                "url": "",
-            })
-        checked.append("OpenAIRE")
-    except Exception:
-        pass
-
-    # PubMed（美国国立医学图书馆）
-    try:
-        r = requests.get(
-            "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
-            params={"db": "pubmed", "term": kw, "retmode": "json", "retmax": 5},
-            timeout=20,
-        )
-        r.raise_for_status()
-        ids = r.json().get("esearchresult", {}).get("idlist", [])
-        if ids:
-            r2 = requests.get(
-                "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi",
-                params={"db": "pubmed", "id": ",".join(ids), "retmode": "json"},
-                timeout=20,
-            )
-            r2.raise_for_status()
-            d = r2.json().get("result", {})
-            for pid in ids:
-                rec = d.get(pid, {})
-                title = rec.get("title", "") or ""
-                sim = float(_cosine(qvec, _hash_embed(title)))
-                matches.append({
-                    "source": "PubMed",
-                    "title": title.rstrip("."),
-                    "year": (rec.get("pubdate", "") or "")[:4],
-                    "similarity": round(sim, 3),
-                    "url": f"https://pubmed.ncbi.nlm.nih.gov/{pid}/",
-                })
-            checked.append("PubMed")
-    except Exception:
-        pass
+    with ThreadPoolExecutor(max_workers=len(_PLAG_SOURCES)) as ex:
+        futures = {ex.submit(fn, qvec, query, kw): name for name, fn in _PLAG_SOURCES.items()}
+        for fut in as_completed(futures):
+            name = futures[fut]
+            try:
+                matches.extend(fut.result())
+                checked.append(name)
+            except Exception:
+                pass
 
     matches.sort(key=lambda m: m["similarity"], reverse=True)
     top = matches[:5]
@@ -1161,16 +1167,12 @@ def plagiarism_check(req: PlagiarismRequest):
     # 段落级相似度：把全文按段落切分，逐段比对候选文献标题
     para_scores = []
     if top:
-        cand_vecs = [(m, _hash_embed(m["title"])) for m in top]
+        cand_vecs = [_hash_embed(m["title"]) for m in top]
         for p in _split_paragraphs(text):
             if len(p) < 30:
                 continue
             pvec = _hash_embed(p)
-            best = 0.0
-            for m, cvec in cand_vecs:
-                s = float(_cosine(pvec, cvec))
-                if s > best:
-                    best = s
+            best = max((float(_cosine(pvec, cvec)) for cvec in cand_vecs), default=0.0)
             para_scores.append(PlagiarismParagraph(text=p[:200], similarity=round(best, 3)))
         para_scores.sort(key=lambda x: x.similarity, reverse=True)
         para_scores = para_scores[:5]
@@ -1185,6 +1187,7 @@ def plagiarism_check(req: PlagiarismRequest):
         paragraphs=para_scores,
         sources_checked=checked,
     )
+
 
 
 @app.post("/api/extract-text")

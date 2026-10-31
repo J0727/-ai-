@@ -375,8 +375,8 @@
                 <button id="plagCloseBtn" class="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg">关闭</button>
             </div>
             <div class="flex items-center justify-between mb-1">
-                <span class="text-xs text-slate-500">支持整篇论文（一两万字），可粘贴或上传 PDF/TXT</span>
-                <span id="plagCount" class="text-xs text-slate-400">0 字</span>
+                <span class="text-xs text-slate-500">支持整篇论文（最高 10 万字），可粘贴或上传 PDF/TXT</span>
+                <span id="plagCount" class="text-xs text-slate-400">0 / 100000 字</span>
             </div>
             <textarea id="plagText" rows="10" placeholder="粘贴整篇论文（标题、摘要、正文均可），或点下方按钮上传 PDF/TXT…" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500 resize-none"></textarea>
             <div class="mt-2 flex items-center gap-2">
@@ -1384,7 +1384,9 @@
         const plagTextEl = document.getElementById('plagText');
         const plagCountEl = document.getElementById('plagCount');
         function updatePlagCount() {
-            plagCountEl.textContent = (plagTextEl.value.length || 0) + ' 字';
+            const n = plagTextEl.value.length || 0;
+            plagCountEl.textContent = n + ' / 100000 字';
+            plagCountEl.className = n > 100000 ? 'text-xs text-red-600 font-medium' : 'text-xs text-slate-400';
         }
         plagTextEl.addEventListener('input', updatePlagCount);
 
@@ -1415,6 +1417,7 @@
             const text = document.getElementById('plagText').value.trim();
             const out = document.getElementById('plagResult');
             if (!text || text.length < 20) { out.textContent = '请至少输入 20 字'; return; }
+            if (text.length > 100000) { out.textContent = `超出上限：最高支持 10 万字（当前 ${text.length} 字），请删减后再查`; return; }
             const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
             out.textContent = `查重中（${text.length} 字，正在比对 8 个开放文献库）…`;
             try {
