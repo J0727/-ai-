@@ -1255,15 +1255,69 @@
             try { localStorage.setItem('zhihui_lang', lang); } catch (e) {}
         }
 
+        // ==================== 全页面翻译（含弹窗） ====================
+        const _origTexts = new Map();
+        const _origPlaceholders = new Map();
+
+        function collectTextNodes() {
+            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+                acceptNode(node) {
+                    const p = node.parentElement;
+                    if (!p) return NodeFilter.FILTER_REJECT;
+                    if (['SCRIPT', 'STYLE', 'TEXTAREA', 'OPTION'].includes(p.tagName)) return NodeFilter.FILTER_REJECT;
+                    if (!node.textContent.trim()) return NodeFilter.FILTER_REJECT;
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+            });
+            const nodes = [];
+            while (walker.nextNode()) nodes.push(walker.currentNode);
+            return nodes;
+        }
+
+        async function translatePage(target) {
+            if (target === 'zh') {
+                _origTexts.forEach((orig, node) => { if (node.isConnected) node.textContent = orig; });
+                _origPlaceholders.forEach((orig, el) => { if (el.isConnected) el.setAttribute('placeholder', orig); });
+                try { localStorage.setItem('zhihui_lang', 'zh'); } catch (e) {}
+                return;
+            }
+            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const nodes = collectTextNodes();
+            nodes.forEach(n => { if (!_origTexts.has(n)) _origTexts.set(n, n.textContent); });
+            const placeholders = Array.from(document.querySelectorAll('[placeholder]'));
+            placeholders.forEach(el => { if (!_origPlaceholders.has(el)) _origPlaceholders.set(el, el.getAttribute('placeholder')); });
+
+            const items = nodes.map(n => _origTexts.get(n)).concat(placeholders.map(el => _origPlaceholders.get(el)));
+            const unique = [...new Set(items)];
+            const trans = {};
+            for (let i = 0; i < unique.length; i += 40) {
+                const chunk = unique.slice(i, i + 40);
+                try {
+                    const resp = await fetch(`${apiBase}/api/translate-batch`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ texts: chunk, target })
+                    });
+                    const data = await resp.json();
+                    if (data.translations) {
+                        chunk.forEach((src, j) => { if (data.translations[j]) trans[src] = data.translations[j]; });
+                    }
+                } catch (e) {}
+            }
+            nodes.forEach(n => { const t = trans[_origTexts.get(n)]; if (t) n.textContent = t; });
+            placeholders.forEach(el => { const t = trans[_origPlaceholders.get(el)]; if (t) el.setAttribute('placeholder', t); });
+            try { localStorage.setItem('zhihui_lang', target); } catch (e) {}
+        }
+
         document.getElementById('uiLang').addEventListener('change', (e) => {
-            applyLanguage(e.target.value);
+            const lang = e.target.value;
+            document.documentElement.lang = lang;
+            document.documentElement.dir = (lang === 'ar') ? 'rtl' : 'ltr';
+            translatePage(lang);
         });
         try {
             const saved = localStorage.getItem('zhihui_lang');
-            if (saved && I18N[saved]) {
-                document.getElementById('uiLang').value = saved;
-                applyLanguage(saved);
-            }
+            if (saved && I18N[saved]) document.getElementById('uiLang').value = saved;
         } catch (e) {}
 
         // ==================== 论文查重 ====================

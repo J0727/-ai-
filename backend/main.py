@@ -465,6 +465,48 @@ def translate(req: TranslateRequest):
     return TranslateResponse(translated=result["answer"], model=result["model"], target_name=target_name)
 
 
+# ==================== 界面全页翻译（批量） ====================
+class BatchTranslateRequest(BaseModel):
+    texts: list[str] = Field(..., description="待翻译的界面文本列表")
+    target: str = Field("en", description="目标语言代码")
+
+
+class BatchTranslateResponse(BaseModel):
+    translations: list[str]
+    model: str
+
+
+@app.post("/api/translate-batch", response_model=BatchTranslateResponse)
+def translate_batch(req: BatchTranslateRequest):
+    """批量翻译界面文本，返回与输入等长、同顺序的译文列表。"""
+    if not req.texts:
+        return BatchTranslateResponse(translations=[], model=DEFAULT_MODEL)
+    code = (req.target or "en").lower()
+    target_name = _LANGUAGES.get(code, "英语")
+    import json as _json
+
+    prompt = (
+        f"请把下面 JSON 数组中的每个字符串翻译为{target_name}，保持数组长度和顺序完全不变。"
+        "只翻译自然语言，不翻译专有名词/缩写（如 CSV、arXiv、LaTeX、PDF、DeepSeek、RAG、Transformer、GitHub、API）。"
+        "必须返回与输入等长的 JSON 字符串数组，不要任何额外解释、不要 Markdown 代码块。\n\n"
+        + _json.dumps(req.texts, ensure_ascii=False)
+    )
+    result = call_deepseek(prompt, 0.2, "")
+    try:
+        text = result["answer"].strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        arr = _json.loads(text)
+        if isinstance(arr, list) and len(arr) == len(req.texts):
+            return BatchTranslateResponse(translations=[str(x) for x in arr], model=result["model"])
+    except Exception:
+        pass
+    # 解析失败时返回原文，保证界面不崩
+    return BatchTranslateResponse(translations=req.texts, model=result["model"])
+
+
 # ==================== CSV 数据可视化（模块六） ====================
 class VisualizeRequest(BaseModel):
     csv: str = Field(..., min_length=1, description="CSV 文本")
