@@ -625,3 +625,156 @@ def verify_citation(req: CitationRequest):
         return CitationResponse(query=req.citation, candidates=candidates, source="crossref")
     except Exception:
         return CitationResponse(query=req.citation, candidates=[], source="offline")
+
+
+# ==================== 多源文献检索（Crossref / OpenAlex / Europe PMC / DBLP / arXiv） ====================
+from concurrent.futures import ThreadPoolExecutor, as_completed  # noqa: E402
+
+
+class LiteratureRequest(BaseModel):
+    query: str = Field(..., min_length=1, description="检索关键词")
+    limit: int = Field(3, ge=1, le=10, description="每个来源返回条数")
+
+
+class LiteratureItem(BaseModel):
+    source: str
+    title: str
+    authors: str
+    year: str
+    doi: str = ""
+    url: str = ""
+
+
+class LiteratureResponse(BaseModel):
+    query: str
+    results: list[LiteratureItem]
+    sources_ok: list[str]
+    sources_fail: list[str]
+
+
+def _lit_crossref(q: str, n: int):
+    resp = requests.get(
+        "https://api.crossref.org/works",
+        params={"query.bibliographic": q, "rows": n},
+        timeout=20,
+        headers={"User-Agent": "zhihui-yantu/1.0"},
+    )
+    resp.raise_for_status()
+    out = []
+    for it in resp.json().get("message", {}).get("items", []):
+        year = ""
+        for k in ("published-print", "published-online", "issued"):
+            parts = (it.get(k) or {}).get("date-parts")
+            if parts and parts[0] and parts[0][0]:
+                year = str(parts[0][0])
+                break
+        doi = it.get("DOI", "")
+        out.append({
+            "source": "Crossref",
+            "title": (it.get("title") or [""])[0],
+            "authors": ", ".join(
+                f"{a.get('given', '')} {a.get('family', '')}".strip()
+                for a in (it.get("author") or [])[:5]
+            ),
+            "year": year,
+            "doi": doi,
+            "url": f"https://doi.org/{doi}" if doi else "",
+        })
+    return out
+
+
+def _lit_openalex(q: str, n: int):
+    resp = requests.get(
+        "https://api.openalex.org/works",
+        params={"search": q, "per-page": n},
+        timeout=20,
+    )
+    resp.raise_for_status()
+    out = []
+    for it in resp.json().get("results", []):
+        doi = (it.get("doi") or "").replace("https://doi.org/", "")
+        out.append({
+            "source": "OpenAlex",
+            "title": it.get("title") or "",
+            "authors": ", ".join(
+                a.get("author", {}).get("display_name", "")
+                for a in (it.get("authorships") or [])[:5]
+            ),
+            "year": str(it.get("publication_year") or ""),
+            "doi": doi,
+            "url": it.get("doi") or "",
+        })
+    return out
+
+
+def _lit_europepmc(q: str, n: int):
+    resp = requests.get(
+        "https://www.ebi.ac.uk/europepmc/webservices/rest/search",
+        params={"query": q, "format": "json", "pageSize": n},
+        timeout=20,
+    )
+    resp.raise_for_status()
+    out = []
+    for it in resp.json().get("resultList", {}).get("result", []):
+        doi = it.get("doi", "")
+        out.append({
+            "source": "Europe PMC",
+            "title": it.get("title", ""),
+            "authors": it.get("authorString", ""),
+            "year": str(it.get("pubYear", "")),
+            "doi": doi,
+            "url": f"https://doi.org/{doi}" if doi else "",
+        })
+    return out
+
+
+def _lit_arxiv(q: str, n: int):
+    import xml.etree.ElementTree as ET
+
+    resp = requests.get(
+        "http://export.arxiv.org/api/query",
+        params={"search_query": f"all:{q}", "max_results": n},
+        timeout=20,
+    )
+    resp.raise_for_status()
+    root = ET.fromstring(resp.text)
+    ns = {"a": "http://www.w3.org/2005/Atom"}
+    out = []
+    for entry in root.findall("a:entry", ns):
+        out.append({
+            "source": "arXiv",
+            "title": (entry.findtext("a:title", default="", namespaces=ns) or "").strip(),
+            "authors": ", ".join(
+                a.findtext("a:name", default="", namespaces=ns).strip()
+                for a in entry.findall("a:author", ns)
+            ),
+            "year": (entry.findtext("a:published", default="", namespaces=ns) or "")[:4],
+            "doi": "",
+            "url": (entry.findtext("a:id", default="", namespaces=ns) or "").strip(),
+        })
+    return out
+
+
+_LIT_SOURCES = {
+    "Crossref": _lit_crossref,
+    "OpenAlex": _lit_openalex,
+    "Europe PMC": _lit_europepmc,
+    "arXiv": _lit_arxiv,
+}
+
+
+@app.post("/api/literature-search", response_model=LiteratureResponse)
+def literature_search(req: LiteratureRequest):
+    """并行检索多个权威文献库，合并结果。"""
+    results = []
+    ok, fail = [], []
+    with ThreadPoolExecutor(max_workers=len(_LIT_SOURCES)) as ex:
+        futures = {ex.submit(fn, req.query, req.limit): name for name, fn in _LIT_SOURCES.items()}
+        for fut in as_completed(futures):
+            name = futures[fut]
+            try:
+                results.extend(fut.result())
+                ok.append(name)
+            except Exception:
+                fail.append(name)
+    return LiteratureResponse(query=req.query, results=results, sources_ok=ok, sources_fail=fail)

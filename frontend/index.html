@@ -289,6 +289,10 @@
                     <i class="fa-solid fa-magnifying-glass-chart text-purple-600 text-xl"></i>
                     <span class="text-xs text-slate-700">arXiv 检索</span>
                 </button>
+                <button id="litBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-book-medical text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">多源文献检索</span>
+                </button>
                 <button id="latexBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
                     <i class="fa-solid fa-square-root-variable text-purple-600 text-xl"></i>
                     <span class="text-xs text-slate-700">LaTeX 表格</span>
@@ -298,7 +302,7 @@
                     <span class="text-xs text-slate-700">PDF 阅读</span>
                 </button>
             </div>
-            <p class="text-xs text-slate-400 mt-4 text-center">共 11 项科研辅助工具</p>
+            <p class="text-xs text-slate-400 mt-4 text-center">共 12 项科研辅助工具</p>
         </div>
     </div>
 
@@ -960,6 +964,45 @@
         document.querySelectorAll('#toolboxGrid button').forEach(btn => {
             btn.addEventListener('click', () => closeToolbox());
         });
+
+        // ==================== 多源文献检索 ====================
+        document.getElementById('litBtn').addEventListener('click', async () => {
+            const q = prompt('输入检索关键词（英文，如 transformer）：');
+            if (!q || !q.trim()) return;
+            await searchLiterature(q.trim());
+        });
+
+        async function searchLiterature(query) {
+            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            addMessage('user', `请检索文献：${query}`);
+            const loading = addTypingIndicator();
+            try {
+                const resp = await fetch(`${apiBase}/api/literature-search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query, limit: 3 })
+                });
+                const data = await resp.json();
+                loading.remove();
+                if (!resp.ok) { addMessage('ai', `检索失败：${data.detail || '未知错误'}`); return; }
+                const groups = {};
+                (data.results || []).forEach(r => {
+                    (groups[r.source] = groups[r.source] || []).push(r);
+                });
+                let md = `**多源文献检索结果**（成功：${(data.sources_ok || []).join('、')}）\n\n`;
+                Object.keys(groups).forEach(src => {
+                    md += `### ${src}\n`;
+                    groups[src].forEach(r => {
+                        md += `- **${r.title}**\n  ${r.authors} · ${r.year}${r.doi ? ' · DOI: ' + r.doi : ''}\n`;
+                    });
+                });
+                if (!Object.keys(groups).length) md += '未检索到结果。';
+                addMessage('ai', md);
+            } catch (e) {
+                loading.remove();
+                addMessage('ai', `检索失败：${e.message}（请确认后端已启动）`);
+            }
+        }
 
         // ==================== 页面初始化 ====================
         window.addEventListener('DOMContentLoaded', () => {
