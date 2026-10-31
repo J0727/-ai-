@@ -448,3 +448,91 @@ def visualize(req: VisualizeRequest):
     data = rows[1:]
     chart_type = "line" if len(data) > 10 else "bar"
     return VisualizeResponse(columns=header, rows=data, chart_type=chart_type)
+
+
+# ==================== LaTeX 表格生成（模块六） ====================
+class LatexRequest(BaseModel):
+    csv: str = Field(..., min_length=1, description="CSV 文本")
+
+
+class LatexResponse(BaseModel):
+    latex: str
+
+
+@app.post("/api/latex", response_model=LatexResponse)
+def generate_latex(req: LatexRequest):
+    """把 CSV 转成可直接编译的 LaTeX 表格代码。"""
+    import csv as _csv
+    reader = _csv.reader(io.StringIO(req.csv.strip()))
+    rows = [r for r in reader if r]
+    if not rows:
+        raise HTTPException(status_code=400, detail="CSV 内容为空")
+    header = rows[0]
+    data = rows[1:]
+    ncol = len(header)
+    lines = [
+        "\\begin{table}[htbp]",
+        "  \\centering",
+        "  \\caption{实验结果}",
+        "  \\begin{tabular}{" + "l" + "c" * (ncol - 1) + "}",
+        "    \\hline",
+        "    " + " & ".join(header) + " \\\\",
+        "    \\hline",
+    ]
+    for row in data:
+        lines.append("    " + " & ".join(row) + " \\\\")
+    lines += ["    \\hline", "  \\end{tabular}", "\\end{table}"]
+    return LatexResponse(latex="\n".join(lines))
+
+
+# ==================== arXiv 自动检索（模块四） ====================
+class ArxivResponse(BaseModel):
+    papers: list[dict]
+    source: str
+
+
+@app.get("/api/arxiv", response_model=ArxivResponse)
+def fetch_arxiv(query: str, max_results: int = 5):
+    """从 arXiv 检索论文并写入向量库；网络不可达时返回离线示例。"""
+    import xml.etree.ElementTree as ET
+
+    params = {
+        "search_query": f"all:{query}",
+        "max_results": max(1, min(10, max_results)),
+        "sortBy": "submittedDate",
+        "sortOrder": "descending",
+    }
+    try:
+        resp = requests.get("http://export.arxiv.org/api/query", params=params, timeout=20)
+        resp.raise_for_status()
+        root = ET.fromstring(resp.text)
+        ns = {"a": "http://www.w3.org/2005/Atom"}
+        papers = []
+        for entry in root.findall("a:entry", ns):
+            papers.append({
+                "title": (entry.findtext("a:title", default="", namespaces=ns) or "").strip(),
+                "summary": (entry.findtext("a:summary", default="", namespaces=ns) or "").strip(),
+                "published": (entry.findtext("a:published", default="", namespaces=ns) or "")[:10],
+                "id": (entry.findtext("a:id", default="", namespaces=ns) or "").strip(),
+            })
+        if papers and chromadb is not None:
+            try:
+                col = _get_collection()
+                for p in papers:
+                    text = f"{p['title']}\n{p['summary']}"
+                    col.upsert(
+                        ids=[f"arxiv:{p['id']}"],
+                        documents=[text],
+                        embeddings=[_hash_embed(text)],
+                        metadatas=[{"source": "arXiv", "chunk": 0}],
+                    )
+            except Exception:
+                pass
+        return ArxivResponse(papers=papers, source="arxiv")
+    except Exception:
+        # 离线示例，明确标注来源
+        sample = [
+            {"title": "Attention Is All You Need", "summary": "提出 Transformer 架构，摒弃循环与卷积，完全基于自注意力。", "published": "2017-06-12", "id": "1706.03762"},
+            {"title": "BERT: Pre-training of Deep Bidirectional Transformers", "summary": "双向编码器预训练，显著提升多项 NLP 任务。", "published": "2018-10-11", "id": "1810.04805"},
+        ]
+        return ArxivResponse(papers=sample, source="offline_sample")

@@ -98,7 +98,17 @@
                 <button id="csvBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
                     <i class="fa-solid fa-chart-column"></i> CSV 图表
                 </button>
+                <button id="arxivBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i> arXiv 检索
+                </button>
+                <button id="latexBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-square-root-variable"></i> LaTeX 表格
+                </button>
+                <button id="readerBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-file-pdf"></i> PDF 版式阅读
+                </button>
                 <input type="file" id="pdfInput" accept=".pdf" class="hidden">
+                <input type="file" id="readerInput" accept=".pdf" class="hidden">
             </div>
             <div id="projectList" class="flex-1 overflow-y-auto p-4 space-y-3">
                 <p class="text-xs text-slate-400 font-medium uppercase tracking-wider">项目历史</p>
@@ -242,6 +252,18 @@
             <div class="flex justify-end mt-4">
                 <button id="closeGraphBtn" class="px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg">关闭</button>
             </div>
+        </div>
+    </div>
+
+    <!-- PDF 版式阅读弹窗 -->
+    <div id="readerModal" class="fixed inset-0 z-50 hidden items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/50"></div>
+        <div class="glass-panel relative w-full max-w-4xl h-[80vh] mx-4 p-4 rounded-2xl flex flex-col">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-lg font-bold text-slate-800">PDF 版式阅读</h3>
+                <button id="closeReaderBtn" class="px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg">关闭</button>
+            </div>
+            <iframe id="readerFrame" class="flex-1 w-full rounded-lg border border-slate-200 bg-white"></iframe>
         </div>
     </div>
 
@@ -707,6 +729,77 @@
                 addMessage('ai', `生成失败：${e.message}（请确认后端已启动）`);
             }
         }
+
+        // ==================== arXiv 检索 ====================
+        document.getElementById('arxivBtn').addEventListener('click', async () => {
+            const q = prompt('输入 arXiv 检索关键词（英文，如 transformer）：');
+            if (!q || !q.trim()) return;
+            await searchArxiv(q.trim());
+        });
+
+        async function searchArxiv(query) {
+            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            addMessage('user', `请检索 arXiv：${query}`);
+            const loading = addTypingIndicator();
+            try {
+                const resp = await fetch(`${apiBase}/api/arxiv?query=${encodeURIComponent(query)}&max_results=5`);
+                const data = await resp.json();
+                loading.remove();
+                if (!resp.ok) { addMessage('ai', `检索失败：${data.detail || '未知错误'}`); return; }
+                const list = (data.papers || []).map((p, i) => `${i + 1}. **${p.title}**（${p.published}）\n   ${p.summary.slice(0, 100)}...`).join('\n\n');
+                const tag = data.source === 'offline_sample' ? '（离线示例，网络不通）' : '';
+                addMessage('ai', `**arXiv 检索结果${tag}**\n\n${list || '无结果'}\n\n结果已写入向量库，可直接就这些论文提问。`);
+            } catch (e) {
+                loading.remove();
+                addMessage('ai', `检索失败：${e.message}（请确认后端已启动）`);
+            }
+        }
+
+        // ==================== LaTeX 表格 ====================
+        document.getElementById('latexBtn').addEventListener('click', async () => {
+            const csv = prompt('粘贴 CSV 数据（第一行表头，例如：模型,准确率 / BERT,88.5 / GPT,91.2）');
+            if (!csv || !csv.trim()) return;
+            await generateLatex(csv.trim());
+        });
+
+        async function generateLatex(csv) {
+            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            addMessage('user', '请把 CSV 转成 LaTeX 表格');
+            const loading = addTypingIndicator();
+            try {
+                const resp = await fetch(`${apiBase}/api/latex`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ csv })
+                });
+                const data = await resp.json();
+                loading.remove();
+                if (!resp.ok) { addMessage('ai', `生成失败：${data.detail || '未知错误'}`); return; }
+                addMessage('ai', `**LaTeX 表格代码**\n\n\`\`\`latex\n${data.latex}\n\`\`\``);
+            } catch (e) {
+                loading.remove();
+                addMessage('ai', `生成失败：${e.message}（请确认后端已启动）`);
+            }
+        }
+
+        // ==================== PDF 版式阅读 ====================
+        document.getElementById('readerBtn').addEventListener('click', () => document.getElementById('readerInput').click());
+        document.getElementById('readerInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            e.target.value = '';
+            const url = URL.createObjectURL(file);
+            document.getElementById('readerFrame').src = url;
+            const m = document.getElementById('readerModal');
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+        });
+        document.getElementById('closeReaderBtn').addEventListener('click', () => {
+            const m = document.getElementById('readerModal');
+            m.classList.add('hidden');
+            m.classList.remove('flex');
+            document.getElementById('readerFrame').src = 'about:blank';
+        });
 
         // ==================== 页面初始化 ====================
         window.addEventListener('DOMContentLoaded', () => {
