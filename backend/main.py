@@ -55,21 +55,136 @@ def _init_user_db():
 
 _init_user_db()
 
-# ==================== 学科资料库分类 ====================
+# ==================== 学科资料库分类（两级：学科 → 细分领域） ====================
 _SUBJECTS = [
-    {"id": "cs", "name": "计算机科学", "keyword": "computer science"},
-    {"id": "ai", "name": "人工智能", "keyword": "artificial intelligence"},
-    {"id": "med", "name": "临床医学", "keyword": "clinical medicine"},
-    {"id": "bio", "name": "生物学", "keyword": "molecular biology"},
-    {"id": "phys", "name": "物理学", "keyword": "quantum physics"},
-    {"id": "chem", "name": "化学", "keyword": "organic chemistry"},
-    {"id": "math", "name": "数学", "keyword": "mathematics"},
-    {"id": "econ", "name": "经济学", "keyword": "economics"},
-    {"id": "law", "name": "法学", "keyword": "law"},
-    {"id": "edu", "name": "教育学", "keyword": "education"},
-    {"id": "eng", "name": "工程技术", "keyword": "engineering"},
-    {"id": "psych", "name": "心理学", "keyword": "psychology"},
+    {"id": "cs", "name": "计算机科学", "keyword": "computer science", "children": [
+        {"id": "cs-ai", "name": "人工智能", "keyword": "artificial intelligence"},
+        {"id": "cs-software", "name": "软件工程", "keyword": "software engineering"},
+        {"id": "cs-hardware", "name": "计算机硬件", "keyword": "computer hardware architecture"},
+        {"id": "cs-network", "name": "计算机网络", "keyword": "computer networks"},
+        {"id": "cs-db", "name": "数据库", "keyword": "database systems"},
+        {"id": "cs-security", "name": "信息安全", "keyword": "cybersecurity"},
+        {"id": "cs-cv", "name": "计算机视觉", "keyword": "computer vision"},
+        {"id": "cs-nlp", "name": "自然语言处理", "keyword": "natural language processing"},
+        {"id": "cs-algo", "name": "算法与理论", "keyword": "algorithms theory"},
+        {"id": "cs-hci", "name": "人机交互", "keyword": "human computer interaction"},
+    ]},
+    {"id": "ai", "name": "人工智能", "keyword": "artificial intelligence", "children": [
+        {"id": "ai-ml", "name": "机器学习", "keyword": "machine learning"},
+        {"id": "ai-dl", "name": "深度学习", "keyword": "deep learning"},
+        {"id": "ai-rl", "name": "强化学习", "keyword": "reinforcement learning"},
+        {"id": "ai-llm", "name": "大语言模型", "keyword": "large language model"},
+        {"id": "ai-mm", "name": "多模态", "keyword": "multimodal learning"},
+        {"id": "ai-kg", "name": "知识图谱", "keyword": "knowledge graph"},
+        {"id": "ai-agent", "name": "智能体", "keyword": "autonomous agent"},
+        {"id": "ai-xai", "name": "可解释AI", "keyword": "explainable artificial intelligence"},
+    ]},
+    {"id": "med", "name": "临床医学", "keyword": "clinical medicine", "children": [
+        {"id": "med-internal", "name": "内科学", "keyword": "internal medicine"},
+        {"id": "med-surgery", "name": "外科学", "keyword": "surgery"},
+        {"id": "med-pediatrics", "name": "儿科学", "keyword": "pediatrics"},
+        {"id": "med-obgyn", "name": "妇产科学", "keyword": "obstetrics gynecology"},
+        {"id": "med-oncology", "name": "肿瘤学", "keyword": "oncology"},
+        {"id": "med-neuro", "name": "神经病学", "keyword": "neurology"},
+        {"id": "med-imaging", "name": "影像医学", "keyword": "medical imaging"},
+        {"id": "med-public", "name": "公共卫生", "keyword": "public health"},
+    ]},
+    {"id": "bio", "name": "生物学", "keyword": "molecular biology", "children": [
+        {"id": "bio-mol", "name": "分子生物学", "keyword": "molecular biology"},
+        {"id": "bio-cell", "name": "细胞生物学", "keyword": "cell biology"},
+        {"id": "bio-genetics", "name": "遗传学", "keyword": "genetics"},
+        {"id": "bio-eco", "name": "生态学", "keyword": "ecology"},
+        {"id": "bio-neuro", "name": "神经科学", "keyword": "neuroscience"},
+        {"id": "bio-immuno", "name": "免疫学", "keyword": "immunology"},
+        {"id": "bio-bioinfo", "name": "生物信息学", "keyword": "bioinformatics"},
+    ]},
+    {"id": "phys", "name": "物理学", "keyword": "quantum physics", "children": [
+        {"id": "phys-quantum", "name": "量子物理", "keyword": "quantum physics"},
+        {"id": "phys-condensed", "name": "凝聚态物理", "keyword": "condensed matter physics"},
+        {"id": "phys-particle", "name": "粒子物理", "keyword": "particle physics"},
+        {"id": "phys-optics", "name": "光学", "keyword": "optics"},
+        {"id": "phys-astro", "name": "天体物理", "keyword": "astrophysics"},
+        {"id": "phys-plasma", "name": "等离子体物理", "keyword": "plasma physics"},
+        {"id": "phys-stat", "name": "统计物理", "keyword": "statistical physics"},
+    ]},
+    {"id": "chem", "name": "化学", "keyword": "organic chemistry", "children": [
+        {"id": "chem-organic", "name": "有机化学", "keyword": "organic chemistry"},
+        {"id": "chem-inorganic", "name": "无机化学", "keyword": "inorganic chemistry"},
+        {"id": "chem-physical", "name": "物理化学", "keyword": "physical chemistry"},
+        {"id": "chem-analytical", "name": "分析化学", "keyword": "analytical chemistry"},
+        {"id": "chem-polymer", "name": "高分子化学", "keyword": "polymer chemistry"},
+        {"id": "chem-electro", "name": "电化学", "keyword": "electrochemistry"},
+        {"id": "chem-catalysis", "name": "催化化学", "keyword": "catalysis"},
+    ]},
+    {"id": "math", "name": "数学", "keyword": "mathematics", "children": [
+        {"id": "math-algebra", "name": "代数", "keyword": "algebra"},
+        {"id": "math-geometry", "name": "几何", "keyword": "geometry"},
+        {"id": "math-analysis", "name": "分析", "keyword": "mathematical analysis"},
+        {"id": "math-probability", "name": "概率统计", "keyword": "probability statistics"},
+        {"id": "math-numerical", "name": "数值计算", "keyword": "numerical analysis"},
+        {"id": "math-topology", "name": "拓扑学", "keyword": "topology"},
+        {"id": "math-differential", "name": "微分方程", "keyword": "differential equations"},
+        {"id": "math-numbertheory", "name": "数论", "keyword": "number theory"},
+    ]},
+    {"id": "econ", "name": "经济学", "keyword": "economics", "children": [
+        {"id": "econ-micro", "name": "微观经济", "keyword": "microeconomics"},
+        {"id": "econ-macro", "name": "宏观经济", "keyword": "macroeconomics"},
+        {"id": "econ-econometrics", "name": "计量经济", "keyword": "econometrics"},
+        {"id": "econ-finance", "name": "金融学", "keyword": "finance"},
+        {"id": "econ-trade", "name": "国际贸易", "keyword": "international trade"},
+        {"id": "econ-development", "name": "发展经济", "keyword": "development economics"},
+        {"id": "econ-behavioral", "name": "行为经济", "keyword": "behavioral economics"},
+    ]},
+    {"id": "law", "name": "法学", "keyword": "law", "children": [
+        {"id": "law-civil", "name": "民法", "keyword": "civil law"},
+        {"id": "law-criminal", "name": "刑法", "keyword": "criminal law"},
+        {"id": "law-constitutional", "name": "宪法", "keyword": "constitutional law"},
+        {"id": "law-administrative", "name": "行政法", "keyword": "administrative law"},
+        {"id": "law-international", "name": "国际法", "keyword": "international law"},
+        {"id": "law-commercial", "name": "商法", "keyword": "commercial law"},
+        {"id": "law-ip", "name": "知识产权", "keyword": "intellectual property"},
+        {"id": "law-environmental", "name": "环境法", "keyword": "environmental law"},
+    ]},
+    {"id": "edu", "name": "教育学", "keyword": "education", "children": [
+        {"id": "edu-higher", "name": "高等教育", "keyword": "higher education"},
+        {"id": "edu-basic", "name": "基础教育", "keyword": "basic education"},
+        {"id": "edu-psychology", "name": "教育心理", "keyword": "educational psychology"},
+        {"id": "edu-technology", "name": "教育技术", "keyword": "educational technology"},
+        {"id": "edu-curriculum", "name": "课程论", "keyword": "curriculum design"},
+        {"id": "edu-teacher", "name": "教师教育", "keyword": "teacher education"},
+        {"id": "edu-vocational", "name": "职业教育", "keyword": "vocational education"},
+    ]},
+    {"id": "eng", "name": "工程技术", "keyword": "engineering", "children": [
+        {"id": "eng-mechanical", "name": "机械工程", "keyword": "mechanical engineering"},
+        {"id": "eng-electronic", "name": "电子工程", "keyword": "electronic engineering"},
+        {"id": "eng-civil", "name": "土木工程", "keyword": "civil engineering"},
+        {"id": "eng-chemical", "name": "化学工程", "keyword": "chemical engineering"},
+        {"id": "eng-materials", "name": "材料科学", "keyword": "materials science"},
+        {"id": "eng-energy", "name": "能源工程", "keyword": "energy engineering"},
+        {"id": "eng-aerospace", "name": "航空航天", "keyword": "aerospace engineering"},
+        {"id": "eng-automation", "name": "自动化", "keyword": "automation control"},
+    ]},
+    {"id": "psych", "name": "心理学", "keyword": "psychology", "children": [
+        {"id": "psych-cognitive", "name": "认知心理", "keyword": "cognitive psychology"},
+        {"id": "psych-developmental", "name": "发展心理", "keyword": "developmental psychology"},
+        {"id": "psych-social", "name": "社会心理", "keyword": "social psychology"},
+        {"id": "psych-clinical", "name": "临床心理", "keyword": "clinical psychology"},
+        {"id": "psych-neuro", "name": "神经心理", "keyword": "neuropsychology"},
+        {"id": "psych-industrial", "name": "工业心理", "keyword": "industrial psychology"},
+        {"id": "psych-measurement", "name": "心理测量", "keyword": "psychometrics"},
+    ]},
 ]
+
+
+def _find_subject(sid: str):
+    """在两级学科树中查找，返回 (学科, 子领域或 None)。"""
+    for s in _SUBJECTS:
+        if s["id"] == sid:
+            return s, None
+        for c in s.get("children", []):
+            if c["id"] == sid:
+                return s, c
+    return None, None
 
 app = FastAPI(title="智汇研途 API", version="1.0.0", docs_url=None)
 
@@ -1329,10 +1444,11 @@ def list_subjects():
 
 @app.get("/api/subjects/{sid}/literature")
 def subject_literature(sid: str):
-    """按学科分类检索相关文献（OpenAlex + arXiv 并行）。"""
-    subj = next((s for s in _SUBJECTS if s["id"] == sid), None)
-    if not subj:
+    """按学科/子领域检索相关文献（OpenAlex + arXiv 并行）。"""
+    parent, child = _find_subject(sid)
+    if not parent:
         raise HTTPException(status_code=404, detail="学科不存在")
+    subj = child or parent
     keyword = subj["keyword"]
 
     def _openalex():

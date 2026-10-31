@@ -423,6 +423,7 @@
             <div class="flex-1 flex gap-4 overflow-hidden">
                 <div class="w-40 shrink-0 overflow-y-auto space-y-1 border-r border-slate-100 pr-2" id="subjectList"></div>
                 <div class="flex-1 flex flex-col overflow-hidden">
+                    <div id="subjectChips" class="flex flex-wrap gap-1 mb-2"></div>
                     <div class="flex-1 overflow-y-auto space-y-2" id="subjectItems">
                         <p class="text-sm text-slate-400">← 选择左侧学科，查看对应文献</p>
                     </div>
@@ -1666,12 +1667,30 @@
                     const btn = document.createElement('button');
                     btn.className = 'w-full text-left px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors';
                     btn.textContent = tNames[i] || s.name;
-                    btn.onclick = () => loadSubjectLiterature(s, tNames[i] || s.name);
+                    btn.onclick = () => onMainSubject(s, tNames[i] || s.name);
                     list.appendChild(btn);
                 });
             } catch (e) {
                 list.innerHTML = '<p class="text-xs text-red-500">加载失败</p>';
             }
+        }
+
+        // 点击主学科：渲染子领域标签 + 加载文献
+        async function onMainSubject(s, displayName) {
+            const chipsBox = document.getElementById('subjectChips');
+            chipsBox.innerHTML = '';
+            const children = s.children || [];
+            if (children.length) {
+                const names = await translateTexts(children.map(c => c.name), currentLang);
+                children.forEach((c, i) => {
+                    const chip = document.createElement('button');
+                    chip.className = 'px-2 py-0.5 text-xs rounded-full border border-slate-200 text-slate-600 hover:bg-purple-50 hover:border-purple-300 transition-colors';
+                    chip.textContent = names[i] || c.name;
+                    chip.onclick = () => loadSubjectLiterature(c, names[i] || c.name);
+                    chipsBox.appendChild(chip);
+                });
+            }
+            await loadSubjectLiterature(s, displayName);
         }
 
         async function loadSubjectLiterature(subj, displayName) {
