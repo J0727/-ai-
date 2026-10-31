@@ -303,6 +303,10 @@
                     <i class="fa-solid fa-shield-halved text-purple-600 text-xl"></i>
                     <span class="text-xs text-slate-700">论文查重</span>
                 </button>
+                <button id="subjectBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-book-open text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">学科资料库</span>
+                </button>
                 <button id="csvBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
                     <i class="fa-solid fa-chart-column text-purple-600 text-xl"></i>
                     <span class="text-xs text-slate-700" data-i18n="csv">CSV 图表</span>
@@ -324,7 +328,7 @@
                     <span class="text-xs text-slate-700" data-i18n="reader">PDF 阅读</span>
                 </button>
             </div>
-            <p class="text-xs text-slate-400 mt-4 text-center" data-i18n="toolsCount">共 14 项科研辅助工具</p>
+            <p class="text-xs text-slate-400 mt-4 text-center" data-i18n="toolsCount">共 15 项科研辅助工具</p>
         </div>
     </div>
 
@@ -405,6 +409,26 @@
             </div>
             <button id="authUsersBtn" class="w-full mt-3 text-xs text-slate-500 underline">查看用户资料库</button>
             <div id="authUsersList" class="mt-2 text-xs text-slate-600 max-h-40 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <!-- 学科资料库弹窗 -->
+    <div id="subjectModal" class="fixed inset-0 z-50 hidden items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/50"></div>
+        <div class="glass-panel relative w-[900px] max-w-[95vw] h-[80vh] mx-4 p-6 rounded-2xl flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-book-open mr-2 text-purple-600"></i>学科资料库</h3>
+                <button id="subjectCloseBtn" class="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg">关闭</button>
+            </div>
+            <div class="flex-1 flex gap-4 overflow-hidden">
+                <div class="w-40 shrink-0 overflow-y-auto space-y-1 border-r border-slate-100 pr-2" id="subjectList"></div>
+                <div class="flex-1 flex flex-col overflow-hidden">
+                    <div class="flex-1 overflow-y-auto space-y-2" id="subjectItems">
+                        <p class="text-sm text-slate-400">← 选择左侧学科，查看对应文献</p>
+                    </div>
+                    <div class="mt-3 border-t border-slate-100 pt-2 max-h-44 overflow-y-auto" id="subjectHistory"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1526,6 +1550,117 @@
                 list.textContent = '加载失败：' + e.message;
             }
         });
+
+        // ==================== 学科资料库 + 浏览历史 ====================
+        document.getElementById('subjectBtn').addEventListener('click', async () => {
+            const m = document.getElementById('subjectModal');
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+            await loadSubjects();
+            await loadHistory();
+        });
+        document.getElementById('subjectCloseBtn').addEventListener('click', () => {
+            const m = document.getElementById('subjectModal');
+            m.classList.add('hidden');
+            m.classList.remove('flex');
+        });
+
+        async function loadSubjects() {
+            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const list = document.getElementById('subjectList');
+            list.innerHTML = '<p class="text-xs text-slate-400">加载中…</p>';
+            try {
+                const resp = await fetch(`${apiBase}/api/subjects`);
+                const data = await resp.json();
+                list.innerHTML = '';
+                (data.subjects || []).forEach(s => {
+                    const btn = document.createElement('button');
+                    btn.className = 'w-full text-left px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors';
+                    btn.textContent = s.name;
+                    btn.onclick = () => loadSubjectLiterature(s);
+                    list.appendChild(btn);
+                });
+            } catch (e) {
+                list.innerHTML = '<p class="text-xs text-red-500">加载失败</p>';
+            }
+        }
+
+        async function loadSubjectLiterature(subj) {
+            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const box = document.getElementById('subjectItems');
+            box.innerHTML = `<p class="text-sm text-slate-400">正在加载「${escapeHtml(subj.name)}」文献…</p>`;
+            let username = 'guest';
+            try { username = localStorage.getItem('zhihui_user') || 'guest'; } catch (e) {}
+            try {
+                await fetch(`${apiBase}/api/history`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, subject_id: subj.id, subject_name: subj.name })
+                });
+                await loadHistory();
+            } catch (e) {}
+            try {
+                const resp = await fetch(`${apiBase}/api/subjects/${subj.id}/literature`);
+                const data = await resp.json();
+                if (!resp.ok) { box.innerHTML = `<p class="text-sm text-red-500">${escapeHtml(data.detail || '加载失败')}</p>`; return; }
+                box.innerHTML = '';
+                (data.items || []).forEach(it => {
+                    const div = document.createElement('div');
+                    div.className = 'p-2 border border-slate-200 rounded bg-white';
+                    div.innerHTML = `<div class="text-sm font-medium text-slate-800">${escapeHtml(it.title)}</div>
+                        <div class="text-xs text-slate-500 mt-0.5">${it.source} · ${it.year}${it.authors ? ' · ' + escapeHtml(it.authors) : ''}${it.cited ? ' · 被引 ' + it.cited : ''}</div>
+                        ${it.url ? `<a href="${it.url}" target="_blank" class="text-xs text-purple-600 underline">查看原文</a>` : ''}`;
+                    box.appendChild(div);
+                });
+                if (!(data.items || []).length) box.innerHTML = '<p class="text-sm text-slate-400">该学科暂无文献</p>';
+            } catch (e) {
+                box.innerHTML = `<p class="text-sm text-red-500">加载失败：${escapeHtml(e.message)}</p>`;
+            }
+        }
+
+        async function loadHistory() {
+            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const box = document.getElementById('subjectHistory');
+            let username = 'guest';
+            try { username = localStorage.getItem('zhihui_user') || 'guest'; } catch (e) {}
+            try {
+                const resp = await fetch(`${apiBase}/api/history?username=${encodeURIComponent(username)}`);
+                const data = await resp.json();
+                box.innerHTML = `<div class="text-xs font-semibold text-slate-500 mb-1">我的浏览记录（${data.count}）</div>`;
+                (data.records || []).forEach(r => {
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center gap-2 text-xs py-1 border-b border-slate-100';
+                    row.innerHTML = `<span class="text-slate-700 flex-1 truncate">${escapeHtml(r.subject_name)}${r.item_title ? ' · ' + escapeHtml(r.item_title) : ''}${r.note ? '（' + escapeHtml(r.note) + '）' : ''}</span>
+                        <span class="text-slate-400">${(r.created_at || '').slice(0, 10)}</span>
+                        <button class="text-purple-600 hover:underline" data-edit="${r.id}">编辑</button>
+                        <button class="text-red-500 hover:underline" data-del="${r.id}">删除</button>`;
+                    box.appendChild(row);
+                });
+                if (!(data.records || []).length) {
+                    box.innerHTML += '<p class="text-xs text-slate-400">暂无记录，点击学科即可生成</p>';
+                }
+                box.querySelectorAll('[data-del]').forEach(b => {
+                    b.onclick = async () => {
+                        await fetch(`${apiBase}/api/history/${b.getAttribute('data-del')}`, { method: 'DELETE' });
+                        await loadHistory();
+                    };
+                });
+                box.querySelectorAll('[data-edit]').forEach(b => {
+                    b.onclick = async () => {
+                        const note = prompt('修改备注（留空表示清空）：');
+                        if (note === null) return;
+                        await fetch(`${apiBase}/api/history/${b.getAttribute('data-edit')}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ note })
+                        });
+                        await loadHistory();
+                    };
+                });
+            } catch (e) {
+                box.innerHTML = '<p class="text-xs text-red-500">历史加载失败</p>';
+            }
+        }
 
         // ==================== 页面初始化 ====================
         window.addEventListener('DOMContentLoaded', () => {

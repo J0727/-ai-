@@ -38,11 +38,38 @@ def _init_user_db():
         "created_at TEXT NOT NULL, "
         "last_login TEXT)"
     )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS history ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "username TEXT NOT NULL, "
+        "subject_id TEXT NOT NULL, "
+        "subject_name TEXT NOT NULL, "
+        "item_title TEXT, "
+        "item_url TEXT, "
+        "note TEXT, "
+        "created_at TEXT NOT NULL)"
+    )
     conn.commit()
     conn.close()
 
 
 _init_user_db()
+
+# ==================== 学科资料库分类 ====================
+_SUBJECTS = [
+    {"id": "cs", "name": "计算机科学", "keyword": "computer science"},
+    {"id": "ai", "name": "人工智能", "keyword": "artificial intelligence"},
+    {"id": "med", "name": "临床医学", "keyword": "clinical medicine"},
+    {"id": "bio", "name": "生物学", "keyword": "molecular biology"},
+    {"id": "phys", "name": "物理学", "keyword": "quantum physics"},
+    {"id": "chem", "name": "化学", "keyword": "organic chemistry"},
+    {"id": "math", "name": "数学", "keyword": "mathematics"},
+    {"id": "econ", "name": "经济学", "keyword": "economics"},
+    {"id": "law", "name": "法学", "keyword": "law"},
+    {"id": "edu", "name": "教育学", "keyword": "education"},
+    {"id": "eng", "name": "工程技术", "keyword": "engineering"},
+    {"id": "psych", "name": "心理学", "keyword": "psychology"},
+]
 
 app = FastAPI(title="智汇研途 API", version="1.0.0", docs_url=None)
 
@@ -1278,3 +1305,153 @@ def list_users():
             for r in rows
         ],
     }
+
+
+# ==================== 学科资料库 + 用户浏览历史 ====================
+class HistoryRequest(BaseModel):
+    username: str = Field(..., min_length=1)
+    subject_id: str = Field(..., min_length=1)
+    subject_name: str = Field(..., min_length=1)
+    item_title: str = ""
+    item_url: str = ""
+    note: str = ""
+
+
+class HistoryUpdate(BaseModel):
+    note: str = ""
+
+
+@app.get("/api/subjects")
+def list_subjects():
+    """返回全部学科分类。"""
+    return {"subjects": _SUBJECTS}
+
+
+@app.get("/api/subjects/{sid}/literature")
+def subject_literature(sid: str):
+    """按学科分类检索相关文献（OpenAlex + arXiv 并行）。"""
+    subj = next((s for s in _SUBJECTS if s["id"] == sid), None)
+    if not subj:
+        raise HTTPException(status_code=404, detail="学科不存在")
+    keyword = subj["keyword"]
+
+    def _openalex():
+        r = requests.get(
+            "https://api.openalex.org/works",
+            params={"search": keyword, "per-page": 6, "sort": "cited_by_count:desc"},
+            timeout=20,
+        )
+        r.raise_for_status()
+        out = []
+        for it in r.json().get("results", []):
+            doi = (it.get("doi") or "").replace("https://doi.org/", "")
+            out.append({
+                "source": "OpenAlex",
+                "title": it.get("title") or "",
+                "year": str(it.get("publication_year") or ""),
+                "authors": ", ".join(
+                    a.get("author", {}).get("display_name", "")
+                    for a in (it.get("authorships") or [])[:3]
+                ),
+                "url": it.get("doi") or (f"https://doi.org/{doi}" if doi else ""),
+                "cited": it.get("cited_by_count") or 0,
+            })
+        return out
+
+    def _arxiv():
+        import xml.etree.ElementTree as ET
+
+        r = requests.get(
+            "http://export.arxiv.org/api/query",
+            params={"search_query": f"all:{keyword}", "max_results": 6, "sortBy": "relevance"},
+            timeout=20,
+        )
+        r.raise_for_status()
+        root = ET.fromstring(r.text)
+        ns = {"a": "http://www.w3.org/2005/Atom"}
+        out = []
+        for e in root.findall("a:entry", ns):
+            out.append({
+                "source": "arXiv",
+                "title": (e.findtext("a:title", default="", namespaces=ns) or "").strip(),
+                "year": (e.findtext("a:published", default="", namespaces=ns) or "")[:4],
+                "authors": ", ".join(
+                    a.findtext("a:name", default="", namespaces=ns).strip()
+                    for a in e.findall("a:author", ns)[:3]
+                ),
+                "url": (e.findtext("a:id", default="", namespaces=ns) or "").strip(),
+                "cited": 0,
+            })
+        return out
+
+    items = []
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        futs = [ex.submit(_openalex), ex.submit(_arxiv)]
+        for f in as_completed(futs):
+            try:
+                items.extend(f.result())
+            except Exception:
+                pass
+    items.sort(key=lambda x: x.get("cited", 0), reverse=True)
+    return {"subject": subj, "items": items[:10]}
+
+
+@app.post("/api/history")
+def add_history(req: HistoryRequest):
+    """记录一次学科浏览（绑定用户名）。"""
+    conn = sqlite3.connect(_DB_PATH)
+    conn.execute(
+        "INSERT INTO history (username, subject_id, subject_name, item_title, item_url, note, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (
+            req.username, req.subject_id, req.subject_name, req.item_title, req.item_url, req.note,
+            datetime.now().isoformat(timespec="seconds"),
+        ),
+    )
+    conn.commit()
+    rid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+    conn.close()
+    return {"ok": True, "id": rid}
+
+
+@app.get("/api/history")
+def get_history(username: str):
+    """获取某用户的浏览历史（按时间倒序）。"""
+    conn = sqlite3.connect(_DB_PATH)
+    rows = conn.execute(
+        "SELECT id, subject_id, subject_name, item_title, item_url, note, created_at "
+        "FROM history WHERE username=? ORDER BY id DESC",
+        (username,),
+    ).fetchall()
+    conn.close()
+    return {
+        "username": username,
+        "count": len(rows),
+        "records": [
+            {
+                "id": r[0], "subject_id": r[1], "subject_name": r[2], "item_title": r[3],
+                "item_url": r[4], "note": r[5], "created_at": r[6],
+            }
+            for r in rows
+        ],
+    }
+
+
+@app.put("/api/history/{rid}")
+def update_history(rid: int, req: HistoryUpdate):
+    """修改历史记录的备注。"""
+    conn = sqlite3.connect(_DB_PATH)
+    conn.execute("UPDATE history SET note=? WHERE id=?", (req.note, rid))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
+
+
+@app.delete("/api/history/{rid}")
+def delete_history(rid: int):
+    """删除一条历史记录。"""
+    conn = sqlite3.connect(_DB_PATH)
+    conn.execute("DELETE FROM history WHERE id=?", (rid,))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
