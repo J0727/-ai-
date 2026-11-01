@@ -307,6 +307,10 @@
                     <i class="fa-solid fa-book-open text-purple-600 text-xl"></i>
                     <span class="text-xs text-slate-700">学科资料库</span>
                 </button>
+                <button id="teamBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-users text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">团队协作</span>
+                </button>
                 <button id="csvBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
                     <i class="fa-solid fa-chart-column text-purple-600 text-xl"></i>
                     <span class="text-xs text-slate-700" data-i18n="csv">CSV 图表</span>
@@ -328,7 +332,7 @@
                     <span class="text-xs text-slate-700" data-i18n="reader">PDF 阅读</span>
                 </button>
             </div>
-            <p class="text-xs text-slate-400 mt-4 text-center" data-i18n="toolsCount">共 15 项科研辅助工具</p>
+            <p class="text-xs text-slate-400 mt-4 text-center" data-i18n="toolsCount">共 16 项科研辅助工具</p>
         </div>
     </div>
 
@@ -482,6 +486,70 @@
             </div>
             <div class="mt-2 flex justify-end">
                 <a id="litOriginalLink" target="_blank" class="text-xs text-slate-400 hover:text-purple-600 underline">在原网页查看</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 团队协作弹窗 -->
+    <div id="teamModal" class="fixed inset-0 z-[60] hidden items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/60"></div>
+        <div class="glass-panel relative w-[900px] max-w-[95vw] h-[85vh] mx-4 p-6 rounded-2xl flex flex-col">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-base font-bold text-slate-800"><i class="fa-solid fa-users mr-2 text-purple-600"></i>团队协作</h3>
+                <button id="teamCloseBtn" class="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg">关闭</button>
+            </div>
+            <div id="teamMsg" class="text-xs mb-2 min-h-[16px]"></div>
+
+            <div id="teamHome" class="flex-1 overflow-y-auto">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="border border-slate-200 rounded-lg p-3">
+                        <div class="text-sm font-semibold text-slate-700 mb-2">创建团队</div>
+                        <input id="teamName" placeholder="团队名称（如：论文小组）" class="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-sm mb-2 outline-none">
+                        <button id="teamCreateBtn" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-1.5 rounded-lg text-sm">创建并生成团队代码</button>
+                    </div>
+                    <div class="border border-slate-200 rounded-lg p-3">
+                        <div class="text-sm font-semibold text-slate-700 mb-2">加入团队</div>
+                        <input id="teamCode" placeholder="输入团队代码" class="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-sm mb-2 outline-none">
+                        <button id="teamJoinBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-1.5 rounded-lg text-sm">加入</button>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <div class="text-sm font-semibold text-slate-700 mb-2">我的团队</div>
+                    <div id="teamList" class="space-y-1"></div>
+                </div>
+            </div>
+
+            <div id="teamView" class="flex-1 hidden overflow-hidden flex gap-4">
+                <div class="w-56 shrink-0 overflow-y-auto border-r border-slate-100 pr-2">
+                    <div id="teamInfo" class="text-xs text-slate-600 mb-2"></div>
+                    <div class="text-xs font-semibold text-slate-500 mb-1">成员</div>
+                    <div id="teamMembers" class="space-y-1 mb-3"></div>
+                    <div class="border-t border-slate-100 pt-2">
+                        <div class="text-xs font-semibold text-slate-500 mb-1">邀请成员（仅创建者）</div>
+                        <input id="inviteName" placeholder="成员用户名" class="w-full px-2 py-1 border border-slate-300 rounded-lg text-xs mb-1 outline-none">
+                        <select id="inviteRole" class="w-full px-2 py-1 border border-slate-300 rounded-lg text-xs mb-1 outline-none">
+                            <option value="viewer">只读</option>
+                            <option value="editor">可编辑</option>
+                        </select>
+                        <button id="inviteBtn" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-1 rounded-lg text-xs">邀请</button>
+                    </div>
+                    <button id="teamBackBtn" class="w-full mt-3 text-xs text-slate-500 underline">← 返回我的团队</button>
+                </div>
+                <div class="flex-1 flex flex-col overflow-hidden">
+                    <div class="flex gap-2 mb-2">
+                        <input id="docTitle" placeholder="新文档标题" class="flex-1 px-2 py-1.5 border border-slate-300 rounded-lg text-sm outline-none">
+                        <button id="docCreateBtn" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">新建文档</button>
+                    </div>
+                    <div id="docList" class="max-h-32 overflow-y-auto space-y-1 mb-2"></div>
+                    <div class="flex-1 flex flex-col overflow-hidden">
+                        <div id="docEditorTitle" class="text-sm font-semibold text-slate-700 mb-1">未选择文档</div>
+                        <textarea id="docContent" class="flex-1 w-full px-2 py-2 border border-slate-300 rounded-lg text-sm outline-none resize-none" placeholder="选择或新建文档后在这里编辑…"></textarea>
+                        <div class="flex gap-2 mt-2">
+                            <button id="docSaveBtn" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">保存</button>
+                            <button id="docDeleteBtn" class="px-3 py-1.5 bg-white border border-red-300 text-red-600 hover:bg-red-50 rounded-lg text-sm">删除</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1985,6 +2053,224 @@
                 box.innerHTML = '<p class="text-xs text-red-500">历史加载失败</p>';
             }
         }
+
+        // ==================== 团队协作 ====================
+        let _curTeam = null;
+        let _curDocId = null;
+
+        function _api() {
+            return (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+        }
+        function _uname() {
+            try { return localStorage.getItem('zhihui_user') || 'guest'; } catch (e) { return 'guest'; }
+        }
+        function teamMsg(text, ok) {
+            const el = document.getElementById('teamMsg');
+            el.textContent = text || '';
+            el.className = ok ? 'text-xs mb-2 min-h-[16px] text-green-600' : 'text-xs mb-2 min-h-[16px] text-red-600';
+        }
+
+        document.getElementById('teamBtn').addEventListener('click', () => {
+            const m = document.getElementById('teamModal');
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+            document.getElementById('teamHome').classList.remove('hidden');
+            document.getElementById('teamView').classList.add('hidden');
+            teamMsg('');
+            loadMyTeams();
+        });
+        document.getElementById('teamCloseBtn').addEventListener('click', () => {
+            const m = document.getElementById('teamModal');
+            m.classList.add('hidden');
+            m.classList.remove('flex');
+        });
+        document.getElementById('teamBackBtn').addEventListener('click', () => {
+            document.getElementById('teamHome').classList.remove('hidden');
+            document.getElementById('teamView').classList.add('hidden');
+            loadMyTeams();
+        });
+
+        async function loadMyTeams() {
+            const list = document.getElementById('teamList');
+            list.innerHTML = '<p class="text-xs text-slate-400">加载中…</p>';
+            try {
+                const resp = await fetch(`${_api()}/api/teams/mine?username=${encodeURIComponent(_uname())}`);
+                const data = await resp.json();
+                list.innerHTML = '';
+                (data.teams || []).forEach(t => {
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center gap-2 p-2 border border-slate-200 rounded-lg bg-white cursor-pointer hover:border-purple-300';
+                    const roleLabel = t.role === 'owner' ? '创建者' : t.role === 'editor' ? '可编辑' : '只读';
+                    row.innerHTML = `<span class="text-sm font-medium text-slate-800 flex-1">${escapeHtml(t.name)}</span>
+                        <span class="text-xs text-slate-500">代码 ${escapeHtml(t.code)}</span>
+                        <span class="text-xs text-purple-600">${roleLabel}</span>`;
+                    row.onclick = () => enterTeam(t.code);
+                    list.appendChild(row);
+                });
+                if (!(data.teams || []).length) list.innerHTML = '<p class="text-xs text-slate-400">还没有团队，创建一个或用代码加入</p>';
+            } catch (e) { list.innerHTML = '<p class="text-xs text-red-500">加载失败</p>'; }
+        }
+
+        document.getElementById('teamCreateBtn').addEventListener('click', async () => {
+            const name = document.getElementById('teamName').value.trim();
+            if (!name) { teamMsg('请输入团队名称'); return; }
+            try {
+                const resp = await fetch(`${_api()}/api/teams`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, owner: _uname() })
+                });
+                const data = await resp.json();
+                if (!resp.ok) { teamMsg(data.detail || '创建失败'); return; }
+                teamMsg(`创建成功！团队代码：${data.code}`, true);
+                document.getElementById('teamName').value = '';
+                await loadMyTeams();
+            } catch (e) { teamMsg('创建失败：' + e.message); }
+        });
+
+        document.getElementById('teamJoinBtn').addEventListener('click', async () => {
+            const code = document.getElementById('teamCode').value.trim().toUpperCase();
+            if (!code) { teamMsg('请输入团队代码'); return; }
+            try {
+                const resp = await fetch(`${_api()}/api/teams/join`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, username: _uname() })
+                });
+                const data = await resp.json();
+                if (!resp.ok) { teamMsg(data.detail || '加入失败'); return; }
+                teamMsg('加入成功！', true);
+                document.getElementById('teamCode').value = '';
+                await loadMyTeams();
+            } catch (e) { teamMsg('加入失败：' + e.message); }
+        });
+
+        async function enterTeam(code) {
+            try {
+                const resp = await fetch(`${_api()}/api/teams/${code}?username=${encodeURIComponent(_uname())}`);
+                const data = await resp.json();
+                if (!resp.ok) { teamMsg(data.detail || '无法进入团队'); return; }
+                _curTeam = data;
+                _curDocId = null;
+                document.getElementById('teamHome').classList.add('hidden');
+                document.getElementById('teamView').classList.remove('hidden');
+                const roleLabel = data.my_role === 'owner' ? '创建者' : data.my_role === 'editor' ? '可编辑' : '只读';
+                document.getElementById('teamInfo').innerHTML = `<div class="font-semibold text-slate-800">${escapeHtml(data.name)}</div>
+                    <div>团队代码：<span class="font-mono">${escapeHtml(data.code)}</span></div>
+                    <div>我的权限：${roleLabel}</div>`;
+                const mem = document.getElementById('teamMembers');
+                mem.innerHTML = '';
+                (data.members || []).forEach(mm => {
+                    const row = document.createElement('div');
+                    row.className = 'flex justify-between text-xs py-1 border-b border-slate-100';
+                    const rl = mm.role === 'owner' ? '创建者' : mm.role === 'editor' ? '可编辑' : '只读';
+                    row.innerHTML = `<span class="text-slate-700">${escapeHtml(mm.username)}</span><span class="text-purple-600">${rl}</span>`;
+                    mem.appendChild(row);
+                });
+                const canEdit = data.my_role === 'owner' || data.my_role === 'editor';
+                ['docContent', 'docSaveBtn', 'docCreateBtn'].forEach(id => {
+                    const el = document.getElementById(id);
+                    el.disabled = !canEdit;
+                    el.style.opacity = canEdit ? '1' : '0.5';
+                });
+                document.getElementById('docDeleteBtn').style.display = data.my_role === 'owner' ? 'inline' : 'none';
+                teamMsg('');
+                await loadDocs();
+            } catch (e) { teamMsg('进入失败：' + e.message); }
+        }
+
+        async function loadDocs() {
+            if (!_curTeam) return;
+            const list = document.getElementById('docList');
+            list.innerHTML = '';
+            try {
+                const resp = await fetch(`${_api()}/api/teams/${_curTeam.code}?username=${encodeURIComponent(_uname())}`);
+                const data = await resp.json();
+                (data.docs || []).forEach(d => {
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center gap-2 text-xs p-1.5 border border-slate-200 rounded cursor-pointer hover:bg-purple-50';
+                    row.innerHTML = `<span class="flex-1 text-slate-700">${escapeHtml(d.title)}</span>
+                        <span class="text-slate-400">${(d.updated_at || '').slice(0, 10)}</span>`;
+                    row.onclick = () => openDoc(d.id, d.title);
+                    list.appendChild(row);
+                });
+                if (!(data.docs || []).length) list.innerHTML = '<p class="text-xs text-slate-400">暂无文档</p>';
+            } catch (e) {}
+        }
+
+        async function openDoc(id, title) {
+            if (!_curTeam) return;
+            _curDocId = id;
+            document.getElementById('docEditorTitle').textContent = title || '';
+            try {
+                const resp = await fetch(`${_api()}/api/teams/${_curTeam.code}/docs/${id}?username=${encodeURIComponent(_uname())}`);
+                const data = await resp.json();
+                document.getElementById('docContent').value = data.content || '';
+            } catch (e) {}
+        }
+
+        document.getElementById('docCreateBtn').addEventListener('click', async () => {
+            if (!_curTeam) return;
+            const title = document.getElementById('docTitle').value.trim();
+            if (!title) { teamMsg('请输入文档标题'); return; }
+            try {
+                const resp = await fetch(`${_api()}/api/teams/${_curTeam.code}/docs`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: _uname(), title })
+                });
+                const data = await resp.json();
+                if (!resp.ok) { teamMsg(data.detail || '创建失败'); return; }
+                document.getElementById('docTitle').value = '';
+                await loadDocs();
+                await openDoc(data.id, title);
+                teamMsg('文档已创建', true);
+            } catch (e) { teamMsg('创建失败：' + e.message); }
+        });
+
+        document.getElementById('docSaveBtn').addEventListener('click', async () => {
+            if (!_curTeam || !_curDocId) { teamMsg('请先选择或新建文档'); return; }
+            try {
+                const resp = await fetch(`${_api()}/api/teams/${_curTeam.code}/docs/${_curDocId}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: _uname(), content: document.getElementById('docContent').value })
+                });
+                const data = await resp.json();
+                if (!resp.ok) { teamMsg(data.detail || '保存失败'); return; }
+                teamMsg('保存成功', true);
+                await loadDocs();
+            } catch (e) { teamMsg('保存失败：' + e.message); }
+        });
+
+        document.getElementById('docDeleteBtn').addEventListener('click', async () => {
+            if (!_curTeam || !_curDocId) return;
+            if (!confirm('确定删除该文档？')) return;
+            try {
+                const resp = await fetch(`${_api()}/api/teams/${_curTeam.code}/docs/${_curDocId}?username=${encodeURIComponent(_uname())}`, { method: 'DELETE' });
+                const data = await resp.json();
+                if (!resp.ok) { teamMsg(data.detail || '删除失败'); return; }
+                _curDocId = null;
+                document.getElementById('docContent').value = '';
+                document.getElementById('docEditorTitle').textContent = '未选择文档';
+                await loadDocs();
+                teamMsg('已删除', true);
+            } catch (e) { teamMsg('删除失败：' + e.message); }
+        });
+
+        document.getElementById('inviteBtn').addEventListener('click', async () => {
+            if (!_curTeam) return;
+            const username = document.getElementById('inviteName').value.trim();
+            const role = document.getElementById('inviteRole').value;
+            if (!username) { teamMsg('请输入成员用户名'); return; }
+            try {
+                const resp = await fetch(`${_api()}/api/teams/invite`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: _curTeam.code, owner: _uname(), username, role })
+                });
+                const data = await resp.json();
+                if (!resp.ok) { teamMsg(data.detail || '邀请失败'); return; }
+                teamMsg(`已邀请 ${username}（${role === 'editor' ? '可编辑' : '只读'}）`, true);
+                document.getElementById('inviteName').value = '';
+                await enterTeam(_curTeam.code);
+            } catch (e) { teamMsg('邀请失败：' + e.message); }
+        });
 
         // ==================== 页面初始化 ====================
         window.addEventListener('DOMContentLoaded', () => {

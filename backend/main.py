@@ -49,6 +49,32 @@ def _init_user_db():
         "note TEXT, "
         "created_at TEXT NOT NULL)"
     )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS teams ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "name TEXT NOT NULL, "
+        "code TEXT UNIQUE NOT NULL, "
+        "owner TEXT NOT NULL, "
+        "created_at TEXT NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS team_members ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "team_id INTEGER NOT NULL, "
+        "username TEXT NOT NULL, "
+        "role TEXT NOT NULL, "
+        "joined_at TEXT NOT NULL, "
+        "UNIQUE(team_id, username))"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS team_docs ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "team_id INTEGER NOT NULL, "
+        "title TEXT NOT NULL, "
+        "content TEXT DEFAULT '', "
+        "updated_by TEXT, "
+        "updated_at TEXT NOT NULL)"
+    )
     conn.commit()
     conn.close()
 
@@ -1735,3 +1761,217 @@ def article_detail(req: ArticleDetailRequest):
         url=url,
         doi=doi,
     )
+
+
+# ==================== 团队协作 + 文件编辑 ====================
+class TeamCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=64)
+    owner: str = Field(..., min_length=1)
+
+
+class TeamJoinRequest(BaseModel):
+    code: str = Field(..., min_length=1)
+    username: str = Field(..., min_length=1)
+
+
+class TeamInviteRequest(BaseModel):
+    code: str = Field(..., min_length=1)
+    owner: str = Field(..., min_length=1)
+    username: str = Field(..., min_length=1)
+    role: str = Field("viewer", description="viewer / editor")
+
+
+class DocCreateRequest(BaseModel):
+    username: str = Field(..., min_length=1)
+    title: str = Field(..., min_length=1)
+
+
+class DocUpdateRequest(BaseModel):
+    username: str = Field(..., min_length=1)
+    content: str = ""
+
+
+def _team_role(code: str, username: str):
+    """返回 (team_id, role)，非成员返回 None。"""
+    conn = sqlite3.connect(_DB_PATH)
+    row = conn.execute(
+        "SELECT t.id, m.role FROM teams t JOIN team_members m ON m.team_id = t.id "
+        "WHERE t.code=? AND m.username=?",
+        (code, username),
+    ).fetchone()
+    conn.close()
+    return row
+
+
+@app.post("/api/teams")
+def create_team(req: TeamCreateRequest):
+    """创建团队，生成唯一团队代码，创建者为 owner。"""
+    code = secrets.token_hex(4).upper()
+    conn = sqlite3.connect(_DB_PATH)
+    try:
+        conn.execute(
+            "INSERT INTO teams (name, code, owner, created_at) VALUES (?, ?, ?, ?)",
+            (req.name, code, req.owner, datetime.now().isoformat(timespec="seconds")),
+        )
+        team_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        conn.execute(
+            "INSERT INTO team_members (team_id, username, role, joined_at) VALUES (?, ?, ?, ?)",
+            (team_id, req.owner, "owner", datetime.now().isoformat(timespec="seconds")),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True, "code": code, "name": req.name, "owner": req.owner}
+
+
+@app.post("/api/teams/join")
+def join_team(req: TeamJoinRequest):
+    """用团队代码加入（默认 viewer）。"""
+    conn = sqlite3.connect(_DB_PATH)
+    row = conn.execute("SELECT id FROM teams WHERE code=?", (req.code,)).fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="团队代码不存在")
+    team_id = row[0]
+    try:
+        conn.execute(
+            "INSERT INTO team_members (team_id, username, role, joined_at) VALUES (?, ?, ?, ?)",
+            (team_id, req.username, "viewer", datetime.now().isoformat(timespec="seconds")),
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise HTTPException(status_code=400, detail="你已经是该团队成员")
+    conn.close()
+    return {"ok": True, "team_id": team_id, "role": "viewer"}
+
+
+@app.post("/api/teams/invite")
+def invite_member(req: TeamInviteRequest):
+    """owner 邀请成员并指定权限（viewer / editor）。"""
+    conn = sqlite3.connect(_DB_PATH)
+    row = conn.execute("SELECT id, owner FROM teams WHERE code=?", (req.code,)).fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="团队代码不存在")
+    team_id, owner = row
+    if owner != req.owner:
+        conn.close()
+        raise HTTPException(status_code=403, detail="只有创建者可以邀请成员")
+    role = req.role if req.role in ("viewer", "editor") else "viewer"
+    try:
+        conn.execute(
+            "INSERT INTO team_members (team_id, username, role, joined_at) VALUES (?, ?, ?, ?)",
+            (team_id, req.username, role, datetime.now().isoformat(timespec="seconds")),
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise HTTPException(status_code=400, detail="该成员已在团队中")
+    conn.close()
+    return {"ok": True, "username": req.username, "role": role}
+
+
+@app.get("/api/teams/mine")
+def my_teams(username: str):
+    """返回用户所属的团队列表。"""
+    conn = sqlite3.connect(_DB_PATH)
+    rows = conn.execute(
+        "SELECT t.code, t.name, t.owner, m.role FROM teams t "
+        "JOIN team_members m ON m.team_id = t.id WHERE m.username=? ORDER BY t.id DESC",
+        (username,),
+    ).fetchall()
+    conn.close()
+    return {"teams": [{"code": r[0], "name": r[1], "owner": r[2], "role": r[3]} for r in rows]}
+
+
+@app.get("/api/teams/{code}")
+def team_detail(code: str, username: str):
+    """团队详情：成员 + 文档列表（仅成员可见）。"""
+    role_row = _team_role(code, username)
+    if not role_row:
+        raise HTTPException(status_code=403, detail="你不是该团队成员")
+    team_id = role_row[0]
+    conn = sqlite3.connect(_DB_PATH)
+    team = conn.execute("SELECT name, owner FROM teams WHERE id=?", (team_id,)).fetchone()
+    members = conn.execute(
+        "SELECT username, role, joined_at FROM team_members WHERE team_id=? ORDER BY id", (team_id,)
+    ).fetchall()
+    docs = conn.execute(
+        "SELECT id, title, updated_by, updated_at FROM team_docs WHERE team_id=? ORDER BY id DESC",
+        (team_id,),
+    ).fetchall()
+    conn.close()
+    return {
+        "code": code,
+        "name": team[0],
+        "owner": team[1],
+        "my_role": role_row[1],
+        "members": [{"username": m[0], "role": m[1], "joined_at": m[2]} for m in members],
+        "docs": [{"id": d[0], "title": d[1], "updated_by": d[2], "updated_at": d[3]} for d in docs],
+    }
+
+
+@app.post("/api/teams/{code}/docs")
+def create_doc(code: str, req: DocCreateRequest):
+    role_row = _team_role(code, req.username)
+    if not role_row:
+        raise HTTPException(status_code=403, detail="你不是该团队成员")
+    if role_row[1] not in ("owner", "editor"):
+        raise HTTPException(status_code=403, detail="你的权限不足（仅可查看）")
+    conn = sqlite3.connect(_DB_PATH)
+    conn.execute(
+        "INSERT INTO team_docs (team_id, title, content, updated_by, updated_at) VALUES (?, ?, ?, ?, ?)",
+        (role_row[0], req.title, "", req.username, datetime.now().isoformat(timespec="seconds")),
+    )
+    conn.commit()
+    did = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+    conn.close()
+    return {"ok": True, "id": did}
+
+
+@app.get("/api/teams/{code}/docs/{did}")
+def get_doc(code: str, did: int, username: str):
+    role_row = _team_role(code, username)
+    if not role_row:
+        raise HTTPException(status_code=403, detail="你不是该团队成员")
+    conn = sqlite3.connect(_DB_PATH)
+    row = conn.execute(
+        "SELECT id, title, content, updated_by, updated_at FROM team_docs WHERE id=? AND team_id=?",
+        (did, role_row[0]),
+    ).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    return {"id": row[0], "title": row[1], "content": row[2], "updated_by": row[3], "updated_at": row[4]}
+
+
+@app.put("/api/teams/{code}/docs/{did}")
+def update_doc(code: str, did: int, req: DocUpdateRequest):
+    role_row = _team_role(code, req.username)
+    if not role_row:
+        raise HTTPException(status_code=403, detail="你不是该团队成员")
+    if role_row[1] not in ("owner", "editor"):
+        raise HTTPException(status_code=403, detail="你的权限不足（仅可查看）")
+    conn = sqlite3.connect(_DB_PATH)
+    conn.execute(
+        "UPDATE team_docs SET content=?, updated_by=?, updated_at=? WHERE id=? AND team_id=?",
+        (req.content, req.username, datetime.now().isoformat(timespec="seconds"), did, role_row[0]),
+    )
+    conn.commit()
+    conn.close()
+    return {"ok": True}
+
+
+@app.delete("/api/teams/{code}/docs/{did}")
+def delete_doc(code: str, did: int, username: str):
+    role_row = _team_role(code, username)
+    if not role_row:
+        raise HTTPException(status_code=403, detail="你不是该团队成员")
+    if role_row[1] != "owner":
+        raise HTTPException(status_code=403, detail="只有创建者可以删除文档")
+    conn = sqlite3.connect(_DB_PATH)
+    conn.execute("DELETE FROM team_docs WHERE id=? AND team_id=?", (did, role_row[0]))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
