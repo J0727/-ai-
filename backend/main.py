@@ -1975,3 +1975,102 @@ def delete_doc(code: str, did: int, username: str):
     conn.commit()
     conn.close()
     return {"ok": True}
+
+
+# ==================== AI 课题分类 ====================
+class ClassifyRequest(BaseModel):
+    topic: str = Field(..., min_length=1, description="研究课题")
+
+
+class ClassifyResponse(BaseModel):
+    topic: str
+    subject_id: str
+    subject_name: str
+    sub_id: str
+    sub_name: str
+    confidence: float
+    reason: str
+
+
+def _keyword_classify(topic: str):
+    """关键词兜底匹配。"""
+    tl = (topic or "").lower()
+    best = (None, None, 0)
+    for s in _SUBJECTS:
+        pool = [(s, None)]
+        pool += [(c, s) for c in s.get("children", [])]
+        for item, parent in pool:
+            for k in (item.get("name", ""), item.get("keyword", "")):
+                if not k:
+                    continue
+                kl = k.lower()
+                if kl and kl in tl:
+                    score = len(kl)
+                    if score > best[2]:
+                        best = (item, parent, score)
+    return best[0], best[1]
+
+
+@app.post("/api/classify-topic", response_model=ClassifyResponse)
+def classify_topic(req: ClassifyRequest):
+    """用 AI 把研究课题分类到学科树，返回分类建议。"""
+    import json as _json
+
+    tree_lines = []
+    for s in _SUBJECTS:
+        tree_lines.append(f"- {s['id']} | {s['name']}")
+        for c in s.get("children", []):
+            tree_lines.append(f"  - {c['id']} | {c['name']}")
+    tree_str = "\n".join(tree_lines)
+
+    prompt = (
+        "你是学科分类助手。请把下面的研究课题归入最合适的学科（主学科 + 子领域）。\n"
+        "可选学科树（格式：id | 名称）：\n" + tree_str + "\n\n"
+        f"研究课题：{req.topic}\n\n"
+        "只返回一个 JSON 对象，不要任何解释："
+        '{"subject_id":"主学科id","sub_id":"子领域id","confidence":0.8,"reason":"一句话分类理由"}'
+    )
+    try:
+        result = call_deepseek(prompt, 0.2, "")
+        text = result["answer"].strip()
+        m = re.search(r"\{.*\}", text, re.S)
+        if m:
+            obj = _json.loads(m.group(0))
+            sid = str(obj.get("subject_id", "")).strip()
+            sub = str(obj.get("sub_id", "")).strip()
+            try:
+                conf = float(obj.get("confidence", 0.8) or 0.8)
+            except Exception:
+                conf = 0.8
+            reason = str(obj.get("reason", "") or "")
+            parent = next((s for s in _SUBJECTS if s["id"] == sid), None)
+            if parent:
+                child = next((c for c in parent.get("children", []) if c["id"] == sub), None)
+                return ClassifyResponse(
+                    topic=req.topic,
+                    subject_id=parent["id"],
+                    subject_name=parent["name"],
+                    sub_id=child["id"] if child else "",
+                    sub_name=child["name"] if child else "",
+                    confidence=round(conf, 2),
+                    reason=reason,
+                )
+    except Exception:
+        pass
+
+    # 兜底：关键词匹配
+    item, parent = _keyword_classify(req.topic)
+    if item and parent:
+        return ClassifyResponse(
+            topic=req.topic, subject_id=parent["id"], subject_name=parent["name"],
+            sub_id=item["id"], sub_name=item["name"], confidence=0.5, reason="关键词匹配",
+        )
+    if item:
+        return ClassifyResponse(
+            topic=req.topic, subject_id=item["id"], subject_name=item["name"],
+            sub_id="", sub_name="", confidence=0.5, reason="关键词匹配",
+        )
+    return ClassifyResponse(
+        topic=req.topic, subject_id="", subject_name="", sub_id="", sub_name="",
+        confidence=0.0, reason="未能分类",
+    )

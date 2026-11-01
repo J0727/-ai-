@@ -768,7 +768,7 @@
         sendBtn.addEventListener('click', sendMessage);
 
         // ==================== 新建课题 ====================
-        function createNewProject() {
+        async function createNewProject() {
             const name = prompt('请输入新课题名称：');
             if (!name || !name.trim()) return;
             const title = name.trim();
@@ -776,7 +776,23 @@
 
             chatContainer.innerHTML = '';
             state.messages = [];
-            addMessage('ai', `已创建新课题「${title}」，请告诉我你的研究问题。`);
+
+            let classMsg = `已创建新课题「${title}」，请告诉我你的研究问题。`;
+            try {
+                const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+                const resp = await fetch(`${apiBase}/api/classify-topic`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topic: title })
+                });
+                const data = await resp.json();
+                if (resp.ok && data.subject_name) {
+                    const sub = data.sub_name ? ` → ${data.sub_name}` : '';
+                    classMsg += `\n\n**AI 分类建议：${data.subject_name}${sub}**（置信度 ${(data.confidence * 100).toFixed(0)}%）`;
+                    if (data.reason) classMsg += `\n理由：${data.reason}`;
+                }
+            } catch (e) {}
+            addMessage('ai', classMsg);
 
             const list = document.getElementById('projectList');
             list.querySelectorAll('.project-item').forEach(el => {
