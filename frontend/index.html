@@ -146,7 +146,7 @@
                     </button>
                 </div>
                 <p class="max-w-4xl mx-auto text-xs text-slate-400 mt-2" data-i18n="hint">Enter 发送 · Shift+Enter 换行 · 内容由 AI 生成，请核实关键结论</p>
-                <p class="max-w-4xl mx-auto text-[10px] text-slate-400 mt-1 leading-snug">本工具仅用于学术研究辅助。文献版权归原作者所有，查重结果仅供参考，不构成侵权判定依据，请勿用于商业分发。</p>
+                <p class="max-w-4xl mx-auto text-[10px] text-slate-400 mt-1 leading-snug">本工具仅用于学术研究辅助。文献版权归原作者所有，相似度结果仅供参考，不构成侵权判定依据，请勿用于商业分发。</p>
             </div>
         </section>
 
@@ -303,7 +303,7 @@
                 </button>
                 <button id="plagBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
                     <i class="fa-solid fa-shield-halved text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700">论文查重</span>
+                    <span class="text-xs text-slate-700">相似度自查</span>
                 </button>
                 <button id="subjectBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
                     <i class="fa-solid fa-book-open text-purple-600 text-xl"></i>
@@ -376,12 +376,12 @@
         </div>
     </div>
 
-    <!-- 论文查重弹窗 -->
+    <!-- 文献相似度自查弹窗 -->
     <div id="plagModal" class="fixed inset-0 z-50 hidden items-center justify-center">
         <div class="absolute inset-0 bg-slate-900/50"></div>
         <div class="glass-panel relative w-full max-w-2xl mx-4 p-6 rounded-2xl">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-shield-halved mr-2 text-purple-600"></i>论文查重</h3>
+                <h3 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-shield-halved mr-2 text-purple-600"></i>文献相似度自查</h3>
                 <button id="plagCloseBtn" class="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg">关闭</button>
             </div>
             <div class="flex items-center justify-between mb-1">
@@ -392,7 +392,7 @@
             <div class="mt-2 flex items-center gap-2">
                 <input type="file" id="plagFile" accept=".pdf,.txt,.md" class="hidden">
                 <button id="plagUploadBtn" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg hover:bg-slate-50">上传 PDF/TXT</button>
-                <button id="plagGoBtn" class="ml-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">开始查重</button>
+                <button id="plagGoBtn" class="ml-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">开始比对</button>
             </div>
             <div id="plagResult" class="mt-3 p-3 bg-slate-50 rounded-lg text-sm text-slate-700 min-h-[60px] max-h-[300px] overflow-y-auto"></div>
         </div>
@@ -1613,7 +1613,7 @@
             if (saved && I18N[saved]) document.getElementById('uiLang').value = saved;
         } catch (e) {}
 
-        // ==================== 论文查重 ====================
+        // ==================== 文献相似度自查 ====================
         document.getElementById('plagBtn').addEventListener('click', () => {
             const m = document.getElementById('plagModal');
             m.classList.remove('hidden');
@@ -1650,7 +1650,7 @@
                 if (!resp.ok) { out.textContent = '解析失败：' + (data.detail || '未知错误'); return; }
                 plagTextEl.value = data.text || '';
                 updatePlagCount();
-                out.textContent = `已提取 ${data.chars} 字，点「开始查重」`;
+                out.textContent = `已提取 ${data.chars} 字，点「开始比对」`;
             } catch (err) {
                 out.textContent = '解析失败：' + err.message;
             }
@@ -1663,7 +1663,7 @@
             if (!text || text.length < 20) { out.textContent = '请至少输入 20 字'; return; }
             if (text.length > 100000) { out.textContent = `超出上限：最高支持 10 万字（当前 ${text.length} 字），请删减后再查`; return; }
             const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
-            out.textContent = `查重中（${text.length} 字，正在比对 8 个开放文献库）…`;
+            out.textContent = `比对中（${text.length} 字，正在与 8 个开放文献库比对）…`;
             try {
                 const resp = await fetch(`${apiBase}/api/plagiarism-check`, {
                     method: 'POST',
