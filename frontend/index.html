@@ -45,6 +45,14 @@
         /* Markdown 渲染样式 */
         .markdown-body strong { color: #7c3aed; font-weight: 600; }
         .markdown-body code { background: #f1f5f9; color: #7c3aed; padding: 1px 5px; border-radius: 4px; font-size: 0.85em; }
+
+        /* 不确定术语：红色波浪下划线 */
+        .wavy-uncertain {
+            text-decoration: underline wavy #dc2626;
+            text-decoration-thickness: 1px;
+            text-underline-offset: 3px;
+            cursor: help;
+        }
     </style>
 </head>
 <body class="text-slate-800 h-screen flex flex-col overflow-hidden">
@@ -269,72 +277,64 @@
                 <button id="closeToolboxBtn" class="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg" data-i18n="close">关闭</button>
             </div>
             <div id="toolboxGrid" class="grid grid-cols-3 gap-3">
+                <button id="litBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-magnifying-glass-chart text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">全网文献检索</span>
+                </button>
                 <button id="uploadBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
                     <i class="fa-solid fa-file-arrow-up text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700" data-i18n="upload">上传文献</span>
-                </button>
-                <button id="outlineBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-pen-ruler text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700" data-i18n="outline">论文大纲</span>
-                </button>
-                <button id="surveyBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-book-open-reader text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700" data-i18n="survey">文献综述</span>
-                </button>
-                <button id="graphBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-diagram-project text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700" data-i18n="graph">引用图谱</span>
-                </button>
-                <button id="translateBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-language text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700" data-i18n="translate">学术翻译</span>
-                </button>
-                <button id="mlBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-globe text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700" data-i18n="mlTranslate">多语言翻译</span>
-                </button>
-                <button id="polishBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-spell-check text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700" data-i18n="polish">学术润色</span>
-                </button>
-                <button id="citeBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-quote-right text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700" data-i18n="cite">文献纠错</span>
-                </button>
-                <button id="plagBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-shield-halved text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700">相似度自查</span>
-                </button>
-                <button id="subjectBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-book-open text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700">学科资料库</span>
-                </button>
-                <button id="teamBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-users text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700">团队协作</span>
-                </button>
-                <button id="csvBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-chart-column text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700" data-i18n="csv">CSV 图表</span>
-                </button>
-                <button id="arxivBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-magnifying-glass-chart text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700" data-i18n="arxiv">arXiv 检索</span>
-                </button>
-                <button id="litBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-book-medical text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700">多源文献检索</span>
-                </button>
-                <button id="latexBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-square-root-variable text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700" data-i18n="latex">LaTeX 表格</span>
+                    <span class="text-xs text-slate-700">导入文献 PDF</span>
                 </button>
                 <button id="readerBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
                     <i class="fa-solid fa-file-pdf text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700" data-i18n="reader">PDF 阅读</span>
+                    <span class="text-xs text-slate-700">PDF 版式阅读</span>
+                </button>
+                <button id="compareBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-table-columns text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">多篇对比阅读</span>
+                </button>
+                <button id="surveyBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-book-open-reader text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">综述一键写</span>
+                </button>
+                <button id="viewpointBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-list-check text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">观点梳理</span>
+                </button>
+                <button id="interpretBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-chart-line text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">图表公式解读</span>
+                </button>
+                <button id="translateBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-language text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">学术翻译</span>
+                </button>
+                <button id="polishBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-spell-check text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">学术润色</span>
+                </button>
+                <button id="citeBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-quote-right text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">引用管理</span>
+                </button>
+                <button id="privacyBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-shield-halved text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">隐私与数据</span>
                 </button>
             </div>
-            <p class="text-xs text-slate-400 mt-4 text-center" data-i18n="toolsCount">共 16 项科研辅助工具</p>
+            <!-- 已下线功能（代码保留，仅隐藏，避免影响其他模块） -->
+            <div class="hidden">
+                <button id="outlineBtn"></button>
+                <button id="graphBtn"></button>
+                <button id="mlBtn"></button>
+                <button id="plagBtn"></button>
+                <button id="subjectBtn"></button>
+                <button id="teamBtn"></button>
+                <button id="csvBtn"></button>
+                <button id="arxivBtn"></button>
+                <button id="latexBtn"></button>
+            </div>
+            <p class="text-xs text-slate-400 mt-4 text-center" data-i18n="toolsCount">共 11 项核心功能（按调研需求 F01~F10）</p>
         </div>
     </div>
 
@@ -413,7 +413,10 @@
                 <button id="authLoginBtn" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-sm">登录</button>
                 <button id="authRegBtn" class="flex-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2 rounded-lg text-sm">注册</button>
             </div>
-            <button id="authUsersBtn" class="w-full mt-3 text-xs text-slate-500 underline">查看用户资料库</button>
+            <p class="mt-3 text-[11px] leading-snug text-green-700 bg-green-50 border border-green-100 rounded-lg p-2">
+                <i class="fa-solid fa-lock mr-1"></i>隐私保护：账号与密码仅以哈希形式保存在<b>本机浏览器</b>，不会上传服务器或云端。
+            </p>
+            <button id="authUsersBtn" class="w-full mt-2 text-xs text-slate-500 underline">查看本机账号</button>
             <div id="authUsersList" class="mt-2 text-xs text-slate-600 max-h-40 overflow-y-auto"></div>
         </div>
     </div>
@@ -551,6 +554,50 @@
                             <button id="docDeleteBtn" class="px-3 py-1.5 bg-white border border-red-300 text-red-600 hover:bg-red-50 rounded-lg text-sm">删除</button>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通用 AI 工具弹窗（多篇对比 / 观点梳理 / 图表公式解读） -->
+    <div id="aiToolModal" class="fixed inset-0 z-[60] hidden items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/60"></div>
+        <div class="glass-panel relative w-full max-w-2xl mx-4 p-6 rounded-2xl max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center mb-3">
+                <h3 id="aiToolTitle" class="text-base font-bold text-slate-800"></h3>
+                <button id="aiToolClose" class="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg">关闭</button>
+            </div>
+            <div id="aiToolInputs" class="space-y-2"></div>
+            <div class="mt-2 flex justify-end">
+                <button id="aiToolRun" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">开始分析</button>
+            </div>
+            <div id="aiToolResult" class="mt-3 p-3 bg-slate-50 rounded-lg text-sm text-slate-700 overflow-y-auto max-h-[45vh] whitespace-pre-wrap"></div>
+        </div>
+    </div>
+
+    <!-- 隐私与数据弹窗 -->
+    <div id="privacyModal" class="fixed inset-0 z-[60] hidden items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/60"></div>
+        <div class="glass-panel relative w-full max-w-lg mx-4 p-6 rounded-2xl">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-base font-bold text-slate-800"><i class="fa-solid fa-shield-halved mr-2 text-purple-600"></i>隐私与数据</h3>
+                <button id="privacyClose" class="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg">关闭</button>
+            </div>
+            <div class="text-sm text-slate-700 space-y-3">
+                <div class="p-3 bg-green-50 border border-green-100 rounded-lg text-xs leading-relaxed text-green-800">
+                    <b>本地优先</b>：账号、密码、浏览记录、翻译缓存全部保存在<b>本机浏览器 localStorage</b>，不上传服务器、不上传云端。
+                </div>
+                <div class="text-xs text-slate-500 leading-relaxed">
+                    当前已用到的外部服务（仅发送必要内容，不发送账号信息）：
+                    <ul class="list-disc ml-5 mt-1 space-y-0.5">
+                        <li>DeepSeek API：用于问答/翻译/生成（内容会被发送用于推理）</li>
+                        <li>OpenAlex / arXiv / Crossref 等：用于文献检索（仅发送检索词）</li>
+                    </ul>
+                </div>
+                <div id="privacyStats" class="text-xs text-slate-600"></div>
+                <div class="flex flex-wrap gap-2 pt-1">
+                    <button id="privacyClearTrans" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg hover:bg-slate-50">清空翻译缓存</button>
+                    <button id="privacyClearAll" class="px-3 py-1.5 text-xs bg-white border border-red-300 text-red-600 rounded-lg hover:bg-red-50">清空本机全部数据</button>
                 </div>
             </div>
         </div>
@@ -1285,6 +1332,18 @@
             m.classList.add('hidden');
             m.classList.remove('flex');
         });
+        // 渲染不确定术语：红色波浪下划线
+        function renderUncertain(text, terms) {
+            let html = escapeHtml(text || '');
+            (terms || []).forEach(t => {
+                if (!t) return;
+                const esc = escapeHtml(t);
+                if (!esc) return;
+                html = html.split(esc).join(`<span class="wavy-uncertain" title="该术语译法不确定，请人工核对">${esc}</span>`);
+            });
+            return html.replace(/\n/g, '<br>');
+        }
+
         document.getElementById('mlGoBtn').addEventListener('click', async () => {
             const text = document.getElementById('mlText').value.trim();
             const target = document.getElementById('mlLang').value;
@@ -1300,7 +1359,7 @@
                 });
                 const data = await resp.json();
                 if (!resp.ok) { out.textContent = '失败：' + (data.detail || '未知错误'); return; }
-                out.textContent = data.translated || '';
+                out.innerHTML = renderUncertain(data.translated || '', data.uncertain_terms || []);
             } catch (e) {
                 out.textContent = '失败：' + e.message + '（请确认后端已启动）';
             }
@@ -1715,8 +1774,30 @@
             authModal.classList.remove('flex');
         });
 
+        // ==================== 本地账号（仅保存在本机，不上传服务器） ====================
+        async function sha256Hex(str) {
+            try {
+                if (window.crypto && crypto.subtle) {
+                    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+                    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+                }
+            } catch (e) {}
+            let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+            for (let i = 0; i < str.length; i++) {
+                const ch = str.charCodeAt(i);
+                h1 = Math.imul(h1 ^ ch, 2654435761);
+                h2 = Math.imul(h2 ^ ch, 1597334677);
+            }
+            return ((h1 >>> 0).toString(16) + (h2 >>> 0).toString(16)).padStart(16, '0');
+        }
+        function loadAccounts() {
+            try { return JSON.parse(localStorage.getItem('zhihui_accounts') || '{}'); } catch (e) { return {}; }
+        }
+        function saveAccounts(obj) {
+            try { localStorage.setItem('zhihui_accounts', JSON.stringify(obj)); } catch (e) {}
+        }
+
         async function doAuth(path) {
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
             const username = document.getElementById('authUser').value.trim();
             const password = document.getElementById('authPass').value;
             const msg = document.getElementById('authMsg');
@@ -1725,50 +1806,47 @@
                 msg.className = 'text-xs mt-2 text-red-600';
                 return;
             }
-            try {
-                const resp = await fetch(`${apiBase}/api/${path}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                const data = await resp.json();
-                if (!resp.ok) {
-                    msg.textContent = data.detail || '失败';
+            const accounts = loadAccounts();
+            const pwHash = await sha256Hex(username + '::' + password);
+
+            if (path === 'register') {
+                if (accounts[username]) {
+                    msg.textContent = '用户名已存在';
                     msg.className = 'text-xs mt-2 text-red-600';
                     return;
                 }
-                try {
-                    localStorage.setItem('zhihui_user', data.username);
-                    localStorage.setItem('zhihui_token', data.token);
-                } catch (e) {}
-                authLabel.textContent = data.username;
-                msg.textContent = data.message;
-                msg.className = 'text-xs mt-2 text-green-600';
-                setTimeout(() => {
-                    authModal.classList.add('hidden');
-                    authModal.classList.remove('flex');
-                }, 800);
-            } catch (e) {
-                msg.textContent = '失败：' + e.message;
-                msg.className = 'text-xs mt-2 text-red-600';
+                accounts[username] = { pw: pwHash, created_at: new Date().toISOString() };
+                saveAccounts(accounts);
+            } else {
+                if (!accounts[username] || accounts[username].pw !== pwHash) {
+                    msg.textContent = '用户名或密码错误';
+                    msg.className = 'text-xs mt-2 text-red-600';
+                    return;
+                }
             }
+
+            try {
+                localStorage.setItem('zhihui_user', username);
+                localStorage.setItem('zhihui_token', 'local-' + Date.now());
+            } catch (e) {}
+            authLabel.textContent = username;
+            msg.textContent = path === 'register' ? '注册成功（仅保存在本机浏览器）' : '登录成功（本机账号）';
+            msg.className = 'text-xs mt-2 text-green-600';
+            setTimeout(() => {
+                authModal.classList.add('hidden');
+                authModal.classList.remove('flex');
+            }, 800);
         }
         document.getElementById('authLoginBtn').addEventListener('click', () => doAuth('login'));
         document.getElementById('authRegBtn').addEventListener('click', () => doAuth('register'));
 
-        document.getElementById('authUsersBtn').addEventListener('click', async () => {
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+        document.getElementById('authUsersBtn').addEventListener('click', () => {
             const list = document.getElementById('authUsersList');
-            list.textContent = '加载中...';
-            try {
-                const resp = await fetch(`${apiBase}/api/users`);
-                const data = await resp.json();
-                list.innerHTML = (data.users || []).map(u =>
-                    `<div class="py-1 border-b border-slate-100">#${u.id} ${escapeHtml(u.username)} · 注册 ${(u.created_at || '').slice(0, 10)} · 登录 ${(u.last_login || '-').slice(0, 10)}</div>`
-                ).join('') || '暂无用户';
-            } catch (e) {
-                list.textContent = '加载失败：' + e.message;
-            }
+            const accounts = loadAccounts();
+            const names = Object.keys(accounts);
+            list.innerHTML = names.length
+                ? names.map(n => `<div class="py-1 border-b border-slate-100">${escapeHtml(n)} · 注册 ${(accounts[n].created_at || '').slice(0, 10)}</div>`).join('')
+                : '暂无本机账号';
         });
 
         // ==================== 学科资料库 + 浏览历史 ====================
@@ -2288,6 +2366,117 @@
                 document.getElementById('inviteName').value = '';
                 await enterTeam(_curTeam.code);
             } catch (e) { teamMsg('邀请失败：' + e.message); }
+        });
+
+        // ==================== 通用 AI 工具（F03/F05/F07） ====================
+        function openAiTool(title, inputsHtml, runFn) {
+            document.getElementById('aiToolTitle').textContent = title;
+            document.getElementById('aiToolInputs').innerHTML = inputsHtml;
+            document.getElementById('aiToolResult').textContent = '';
+            document.getElementById('aiToolRun').onclick = runFn;
+            const m = document.getElementById('aiToolModal');
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+        }
+        document.getElementById('aiToolClose').addEventListener('click', () => {
+            const m = document.getElementById('aiToolModal');
+            m.classList.add('hidden');
+            m.classList.remove('flex');
+        });
+
+        document.getElementById('compareBtn').addEventListener('click', () => {
+            openAiTool('多篇对比阅读（F03）',
+                `<p class="text-xs text-slate-500">粘贴 2~5 篇文献的摘要或关键段落，AI 会生成对比表与结论。</p>
+                 <textarea id="cmp0" rows="3" placeholder="文献 1 摘要/内容…" class="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-xs outline-none"></textarea>
+                 <textarea id="cmp1" rows="3" placeholder="文献 2 摘要/内容…" class="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-xs outline-none"></textarea>
+                 <textarea id="cmp2" rows="3" placeholder="文献 3（可选）…" class="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-xs outline-none"></textarea>`,
+                async () => {
+                    const papers = ['cmp0', 'cmp1', 'cmp2'].map(id => document.getElementById(id).value.trim()).filter(Boolean);
+                    const out = document.getElementById('aiToolResult');
+                    if (papers.length < 2) { out.textContent = '至少填写 2 篇文献'; return; }
+                    out.textContent = '对比中…';
+                    try {
+                        const resp = await fetch(`${_api()}/api/compare-papers`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ papers }) });
+                        const data = await resp.json();
+                        out.textContent = resp.ok ? (data.table || '') : ('失败：' + (data.detail || '未知错误'));
+                    } catch (e) { out.textContent = '失败：' + e.message; }
+                });
+        });
+
+        document.getElementById('viewpointBtn').addEventListener('click', () => {
+            openAiTool('观点梳理（F05）',
+                `<p class="text-xs text-slate-500">粘贴多篇文献内容或综述文本，AI 提取各家观点并生成对比表 + 大纲。</p>
+                 <textarea id="vpText" rows="8" placeholder="粘贴文本…" class="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-xs outline-none"></textarea>`,
+                async () => {
+                    const text = document.getElementById('vpText').value.trim();
+                    const out = document.getElementById('aiToolResult');
+                    if (text.length < 10) { out.textContent = '请输入至少 10 个字'; return; }
+                    out.textContent = '梳理中…';
+                    try {
+                        const resp = await fetch(`${_api()}/api/extract-viewpoints`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+                        const data = await resp.json();
+                        out.textContent = resp.ok ? (data.result || '') : ('失败：' + (data.detail || '未知错误'));
+                    } catch (e) { out.textContent = '失败：' + e.message; }
+                });
+        });
+
+        document.getElementById('interpretBtn').addEventListener('click', () => {
+            openAiTool('图表 / 公式解读（F07）',
+                `<p class="text-xs text-slate-500">粘贴图注、图表数据、公式或相关段落，AI 会解释含义与结论。</p>
+                 <select id="intKind" class="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-xs outline-none">
+                    <option value="auto">自动识别</option>
+                    <option value="figure">图表</option>
+                    <option value="formula">公式</option>
+                    <option value="table">表格</option>
+                 </select>
+                 <textarea id="intText" rows="7" placeholder="粘贴图表标题/图注/公式…" class="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-xs outline-none"></textarea>`,
+                async () => {
+                    const text = document.getElementById('intText').value.trim();
+                    const kind = document.getElementById('intKind').value;
+                    const out = document.getElementById('aiToolResult');
+                    if (text.length < 5) { out.textContent = '请输入内容'; return; }
+                    out.textContent = '解读中…';
+                    try {
+                        const resp = await fetch(`${_api()}/api/interpret`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, kind }) });
+                        const data = await resp.json();
+                        out.textContent = resp.ok ? (data.explanation || '') : ('失败：' + (data.detail || '未知错误'));
+                    } catch (e) { out.textContent = '失败：' + e.message; }
+                });
+        });
+
+        // ==================== F10 隐私与数据 ====================
+        function privacyStats() {
+            const el = document.getElementById('privacyStats');
+            try {
+                const accounts = Object.keys(JSON.parse(localStorage.getItem('zhihui_accounts') || '{}')).length;
+                const raw = localStorage.getItem('zhihui_trans');
+                const trans = raw ? (raw.length / 1024).toFixed(1) + ' KB' : '无';
+                const user = localStorage.getItem('zhihui_user') || '未登录';
+                el.innerHTML = `当前登录：<b>${escapeHtml(user)}</b>　本机账号：<b>${accounts}</b> 个　翻译缓存：<b>${trans}</b>`;
+            } catch (e) { el.textContent = ''; }
+        }
+        document.getElementById('privacyBtn').addEventListener('click', () => {
+            privacyStats();
+            const m = document.getElementById('privacyModal');
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+        });
+        document.getElementById('privacyClose').addEventListener('click', () => {
+            const m = document.getElementById('privacyModal');
+            m.classList.add('hidden');
+            m.classList.remove('flex');
+        });
+        document.getElementById('privacyClearTrans').addEventListener('click', () => {
+            try { localStorage.removeItem('zhihui_trans'); } catch (e) {}
+            privacyStats();
+        });
+        document.getElementById('privacyClearAll').addEventListener('click', () => {
+            if (!confirm('确定清空本机全部数据（账号/登录/历史/缓存）？')) return;
+            try {
+                ['zhihui_accounts', 'zhihui_user', 'zhihui_token', 'zhihui_trans', 'zhihui_lang'].forEach(k => localStorage.removeItem(k));
+            } catch (e) {}
+            privacyStats();
+            alert('已清空，请刷新页面');
         });
 
         // ==================== 页面初始化 ====================

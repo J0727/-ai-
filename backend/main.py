@@ -299,6 +299,17 @@ def call_deepseek(question: str, temperature: float, context: str = "", retries:
                     "model": data.get("model", DEFAULT_MODEL),
                     "usage": data.get("usage"),
                 }
+            # 余额不足 / Key 失效：直接给出可读提示
+            if resp.status_code == 402:
+                raise HTTPException(
+                    status_code=503,
+                    detail="DeepSeek 账户余额不足，请充值后重试（platform.deepseek.com → 充值）",
+                )
+            if resp.status_code == 401:
+                raise HTTPException(
+                    status_code=503,
+                    detail="DeepSeek API Key 无效，请检查 backend/.env 中的 DEEPSEEK_API_KEY",
+                )
             # 限流/服务端错误可重试
             if resp.status_code in (429, 500, 502, 503) and attempt < retries:
                 last_err = f"HTTP {resp.status_code}"
@@ -616,6 +627,7 @@ class TranslateResponse(BaseModel):
     translated: str
     model: str
     target_name: str = ""
+    uncertain_terms: list[str] = []
 
 
 @app.get("/api/languages")
@@ -626,12 +638,39 @@ def list_languages():
 
 @app.post("/api/translate", response_model=TranslateResponse)
 def translate(req: TranslateRequest):
-    """多语言学术互译，保留专业术语与代码。"""
+    """科研文献翻译：采用标准学术表达，并标记不确定术语（前端画红色波浪线）。"""
     code = (req.target or "en").lower()
     target_name = _LANGUAGES.get(code, "英语")
-    prompt = f"请将以下学术文本翻译为{target_name}，保留专业术语、公式与代码不译：\n\n{req.text}"
-    result = call_deepseek(prompt, 0.3, "")
-    return TranslateResponse(translated=result["answer"], model=result["model"], target_name=target_name)
+    prompt = (
+        f"你是科研论文翻译专家。请把下面的学术文本翻译为{target_name}。\n"
+        "要求：\n"
+        "1. 使用科研论文（arXiv、PubMed、IEEE 等英文期刊）中的标准学术表达；\n"
+        "2. 专业术语采用领域内通行译法，公式、变量名、代码、缩写保持原样；\n"
+        "3. 若某术语存在多种译法或你不确定其准确译法，请把它单独列出；\n"
+        "4. 只返回一个 JSON 对象，不要任何解释：\n"
+        '{"text":"译文","uncertain_terms":["不确定的术语1"]}\n\n'
+        f"原文：\n{req.text}"
+    )
+    result = call_deepseek(prompt, 0.2, "")
+    raw = (result["answer"] or "").strip()
+    translated = raw
+    uncertain = []
+    try:
+        import json as _json
+
+        m = re.search(r"\{.*\}", raw, re.S)
+        if m:
+            obj = _json.loads(m.group(0))
+            translated = str(obj.get("text", "") or raw)
+            uncertain = [str(x).strip() for x in (obj.get("uncertain_terms") or []) if str(x).strip()]
+    except Exception:
+        pass
+    return TranslateResponse(
+        translated=translated,
+        model=result["model"],
+        target_name=target_name,
+        uncertain_terms=uncertain,
+    )
 
 
 # ==================== 界面全页翻译（批量） ====================
@@ -2074,3 +2113,79 @@ def classify_topic(req: ClassifyRequest):
         topic=req.topic, subject_id="", subject_name="", sub_id="", sub_name="",
         confidence=0.0, reason="未能分类",
     )
+
+
+# ==================== F03 多篇对比阅读 ====================
+class CompareRequest(BaseModel):
+    papers: list[str] = Field(..., description="多篇文献的摘要或内容")
+
+
+class CompareResponse(BaseModel):
+    table: str
+    model: str
+
+
+@app.post("/api/compare-papers", response_model=CompareResponse)
+def compare_papers(req: CompareRequest):
+    """多篇一键读：自动对比多篇文献，生成对比表与结论。"""
+    if len(req.papers) < 2:
+        raise HTTPException(status_code=400, detail="至少需要 2 篇文献")
+    numbered = "\n\n".join(f"【文献 {i + 1}】\n{p}" for i, p in enumerate(req.papers))
+    prompt = (
+        "你是科研文献对比助手。请对比下面多篇文献，输出：\n"
+        "1. 一张 Markdown 对比表（列：文献编号、研究对象、方法、数据来源、主要结论、局限性）；\n"
+        "2. 一段 150 字以内的综合结论（指出共识与分歧）。\n\n"
+        + numbered
+    )
+    result = call_deepseek(prompt, 0.4, "")
+    return CompareResponse(table=result["answer"], model=result["model"])
+
+
+# ==================== F05 观点梳理 ====================
+class ViewpointRequest(BaseModel):
+    text: str = Field(..., min_length=10, description="多篇文献内容或综述文本")
+
+
+class ViewpointResponse(BaseModel):
+    result: str
+    model: str
+
+
+@app.post("/api/extract-viewpoints", response_model=ViewpointResponse)
+def extract_viewpoints(req: ViewpointRequest):
+    """观点梳理：提取各家观点，生成对比表格或大纲。"""
+    prompt = (
+        "你是学术观点梳理助手。请从下面的文本中提取各家观点，输出：\n"
+        "1. 一张 Markdown 观点对比表（列：作者/来源、核心观点、支撑证据、与其他观点的关系）；\n"
+        "2. 一个 3~5 级的观点大纲。\n\n"
+        "文本：\n" + req.text
+    )
+    result = call_deepseek(prompt, 0.4, "")
+    return ViewpointResponse(result=result["answer"], model=result["model"])
+
+
+# ==================== F07 图表公式智能解读 ====================
+class InterpretRequest(BaseModel):
+    text: str = Field(..., min_length=5, description="图表标题、图注、公式或相关段落")
+    kind: str = Field("auto", description="figure / formula / table / auto")
+
+
+class InterpretResponse(BaseModel):
+    explanation: str
+    model: str
+
+
+@app.post("/api/interpret", response_model=InterpretResponse)
+def interpret(req: InterpretRequest):
+    """图表公式智能解读：解释图表/公式的含义、关键数据与结论。"""
+    kind_name = {"figure": "图表", "formula": "公式", "table": "表格"}.get(req.kind, "图表或公式")
+    prompt = (
+        f"你是科研论文解读助手。请解读下面的{kind_name}内容：\n"
+        "1. 它表达了什么（坐标轴、符号、变量的含义）；\n"
+        "2. 关键数据或关键结论；\n"
+        "3. 作者想用它说明什么；\n"
+        "4. 可能的局限或需要注意的地方。\n\n"
+        "内容：\n" + req.text
+    )
+    result = call_deepseek(prompt, 0.4, "")
+    return InterpretResponse(explanation=result["answer"], model=result["model"])
