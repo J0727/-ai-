@@ -628,6 +628,7 @@ class TranslateResponse(BaseModel):
     model: str
     target_name: str = ""
     uncertain_terms: list[str] = []
+    uncertain_sources: list[str] = []
 
 
 @app.get("/api/languages")
@@ -646,15 +647,16 @@ def translate(req: TranslateRequest):
         "要求：\n"
         "1. 使用科研论文（arXiv、PubMed、IEEE 等英文期刊）中的标准学术表达；\n"
         "2. 专业术语采用领域内通行译法，公式、变量名、代码、缩写保持原样；\n"
-        "3. 若某术语存在多种译法或你不确定其准确译法，请把它单独列出；\n"
+        "3. 对存在多种译法或你不确定的术语，必须给出「原文 → 译文中对应写法」的对照；\n"
         "4. 只返回一个 JSON 对象，不要任何解释：\n"
-        '{"text":"译文","uncertain_terms":["不确定的术语1"]}\n\n'
+        '{"text":"译文","uncertain_terms":[{"source":"原文术语","target":"译文中对应写法"}]}\n\n'
         f"原文：\n{req.text}"
     )
     result = call_deepseek(prompt, 0.2, "")
     raw = (result["answer"] or "").strip()
     translated = raw
     uncertain = []
+    uncertain_src = []
     try:
         import json as _json
 
@@ -662,7 +664,18 @@ def translate(req: TranslateRequest):
         if m:
             obj = _json.loads(m.group(0))
             translated = str(obj.get("text", "") or raw)
-            uncertain = [str(x).strip() for x in (obj.get("uncertain_terms") or []) if str(x).strip()]
+            for it in (obj.get("uncertain_terms") or []):
+                if isinstance(it, dict):
+                    src = str(it.get("source", "") or "").strip()
+                    tgt = str(it.get("target", "") or "").strip()
+                    if tgt:
+                        uncertain.append(tgt)
+                    if src:
+                        uncertain_src.append(src)
+                else:
+                    s = str(it).strip()
+                    if s:
+                        uncertain.append(s)
     except Exception:
         pass
     return TranslateResponse(
@@ -670,6 +683,7 @@ def translate(req: TranslateRequest):
         model=result["model"],
         target_name=target_name,
         uncertain_terms=uncertain,
+        uncertain_sources=uncertain_src,
     )
 
 

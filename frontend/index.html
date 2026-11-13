@@ -690,6 +690,7 @@
             return escapeHtml(text)
                 .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
                 .replace(/`(.+?)`/g, '<code>$1</code>')
+                .replace(/\[\[wavy:(.+?)\]\]/g, '<span class="wavy-uncertain" title="该术语译法不确定，请人工核对">$1</span>')
                 .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" class="text-purple-600 underline">$1</a>')
                 .replace(/\n/g, '<br>');
         }
@@ -1049,7 +1050,15 @@
                 const data = await resp.json();
                 loading.remove();
                 if (!resp.ok) { addMessage('ai', `翻译失败：${data.detail || '未知错误'}`); return; }
-                addMessage('ai', `**翻译结果（${target === 'en' ? '英文' : '中文'}）**\n\n${data.translated}`);
+                let shown = data.translated || '';
+                (data.uncertain_terms || []).forEach(t => {
+                    if (t) shown = shown.split(t).join(`[[wavy:${t}]]`);
+                });
+                let hint = '';
+                if ((data.uncertain_terms || []).length) {
+                    hint = `\n\n> 红色波浪线术语译法不确定，请人工核对：${data.uncertain_terms.join('、')}`;
+                }
+                addMessage('ai', `**翻译结果（${target === 'en' ? '英文' : '中文'}）**\n\n${shown}${hint}`);
             } catch (e) {
                 loading.remove();
                 addMessage('ai', `翻译失败：${e.message}（请确认后端已启动）`);
