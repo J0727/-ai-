@@ -55,14 +55,16 @@
 ├── requirements.txt
 ├── .gitignore
 ├── frontend/
-│   └── index.html            # 前端界面（工具箱 16 项功能）
+│   └── index.html            # 前端界面（工具箱 11 项核心功能）
 ├── backend/
-│   ├── main.py               # FastAPI 后端（36 个接口）
+│   ├── main.py               # FastAPI 后端（40+ 个接口）
 │   ├── .env.example          # 环境变量示例
 │   └── 启动后端.bat           # 一键启动脚本（Windows）
 └── docs/
+    ├── 系统设计报告.docx / .pdf   # 概要设计 + 详细设计（含架构图）
     ├── 技术文档.docx / .pdf
     ├── 作品介绍文档.docx / .pdf
+    ├── design/                    # 设计图（架构图 / 模块图 / 数据流图）
     ├── 演示视频脚本-最终版.md
     ├── 技术报告大纲.md
     └── 测试报告.md
