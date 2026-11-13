@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 import os
 import io
 import re
+import json
 import time
 import hashlib
 import secrets
@@ -24,8 +25,92 @@ from pypdf import PdfReader
 # 加载环境变量（无论从哪个目录启动，都定位到 backend/.env）
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
-# ==================== 用户数据库（SQLite 持久化） ====================
-_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "users.db")
+# ==================== 用户数据目录（E 盘专用文件夹，需用户授权） ====================
+_DEFAULT_DATA_DIR = os.getenv("ZHIHUI_DATA_DIR", r"E:\智汇研途-用户数据")
+_TEMP_DATA_DIR = os.path.join(os.environ.get("TEMP", "."), "zhihui_temp")
+_CONSENT_FILE_NAME = "consent.json"
+
+_DATA_DIR = _TEMP_DATA_DIR
+_DB_PATH = os.path.join(_DATA_DIR, "users.db")
+_NEEDS_CONSENT = True
+
+
+def _compute_data_paths():
+    """根据授权文件决定用户数据的存放位置（未授权时用临时目录）。"""
+    global _DATA_DIR, _DB_PATH, _NEEDS_CONSENT
+    consent = os.path.join(_DEFAULT_DATA_DIR, _CONSENT_FILE_NAME)
+    if os.path.exists(consent):
+        _DATA_DIR = _DEFAULT_DATA_DIR
+        _NEEDS_CONSENT = False
+    else:
+        _DATA_DIR = _TEMP_DATA_DIR
+        _NEEDS_CONSENT = True
+        try:
+            os.makedirs(_DATA_DIR, exist_ok=True)
+        except Exception:
+            pass
+    _DB_PATH = os.path.join(_DATA_DIR, "users.db")
+
+
+_compute_data_paths()
+
+
+def _secure_dir(path: str):
+    """把目录访问权限收紧为：当前用户 + SYSTEM + Administrators。"""
+    try:
+        import subprocess
+
+        user = os.environ.get("USERNAME", "")
+        subprocess.run(
+            [
+                "icacls", path, "/inheritance:r",
+                "/grant:r", f"{user}:(OI)(CI)F",
+                "/grant:r", "SYSTEM:(OI)(CI)F",
+                "/grant:r", "Administrators:(OI)(CI)F",
+            ],
+            capture_output=True,
+            timeout=20,
+        )
+        return True
+    except Exception:
+        return False
+
+
+def _grant_consent():
+    """用户同意后：创建 E 盘目录、收紧权限、写入授权文件、迁移临时数据库。"""
+    global _DATA_DIR, _DB_PATH, _NEEDS_CONSENT
+    os.makedirs(_DEFAULT_DATA_DIR, exist_ok=True)
+    _secure_dir(_DEFAULT_DATA_DIR)
+    target = os.path.join(_DEFAULT_DATA_DIR, "users.db")
+    if os.path.exists(_DB_PATH) and not os.path.exists(target):
+        try:
+            import shutil
+
+            shutil.move(_DB_PATH, target)
+        except Exception:
+            pass
+    consent = os.path.join(_DEFAULT_DATA_DIR, _CONSENT_FILE_NAME)
+    with open(consent, "w", encoding="utf-8") as f:
+        json.dump(
+            {"agreed_at": datetime.now().isoformat(timespec="seconds"), "scope": "本机用户数据存储"},
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
+    _DATA_DIR = _DEFAULT_DATA_DIR
+    _DB_PATH = target
+    _NEEDS_CONSENT = False
+
+
+def _revoke_consent():
+    """撤销授权：删除授权文件，后续数据写回临时目录（已存数据保留）。"""
+    consent = os.path.join(_DEFAULT_DATA_DIR, _CONSENT_FILE_NAME)
+    try:
+        if os.path.exists(consent):
+            os.remove(consent)
+    except Exception:
+        pass
+    _compute_data_paths()
 
 
 def _init_user_db():
@@ -2203,3 +2288,64 @@ def interpret(req: InterpretRequest):
     )
     result = call_deepseek(prompt, 0.4, "")
     return InterpretResponse(explanation=result["answer"], model=result["model"])
+
+
+# ==================== 隐私与本地数据目录 ====================
+class ConsentRequest(BaseModel):
+    agree: bool = Field(..., description="是否同意在本机创建用户数据目录")
+
+
+def _dir_size(path: str) -> int:
+    total = 0
+    try:
+        for root, _, files in os.walk(path):
+            for fn in files:
+                try:
+                    total += os.path.getsize(os.path.join(root, fn))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return total
+
+
+@app.get("/api/privacy/status")
+def privacy_status():
+    """返回用户数据目录、授权状态与占用空间。"""
+    consent_path = os.path.join(_DEFAULT_DATA_DIR, _CONSENT_FILE_NAME)
+    db_path = os.path.join(_DATA_DIR, "users.db")
+    return {
+        "default_dir": _DEFAULT_DATA_DIR,
+        "current_dir": _DATA_DIR,
+        "needs_consent": _NEEDS_CONSENT,
+        "consented": os.path.exists(consent_path),
+        "db_exists": os.path.exists(db_path),
+        "db_size_kb": round((os.path.getsize(db_path) / 1024) if os.path.exists(db_path) else 0, 1),
+        "dir_size_kb": round(_dir_size(_DATA_DIR) / 1024, 1),
+    }
+
+
+@app.post("/api/privacy/consent")
+def privacy_consent(req: ConsentRequest):
+    """仅在用户明确同意后创建数据目录；拒绝则撤销。"""
+    if req.agree:
+        _grant_consent()
+        return {"ok": True, "consented": True, "dir": _DATA_DIR}
+    _revoke_consent()
+    return {"ok": True, "consented": False, "dir": _DATA_DIR}
+
+
+@app.post("/api/privacy/purge")
+def privacy_purge():
+    """清空业务数据表（保留授权状态）。"""
+    conn = sqlite3.connect(_DB_PATH)
+    try:
+        for t in ("history", "team_docs", "team_members", "teams"):
+            try:
+                conn.execute(f"DELETE FROM {t}")
+            except Exception:
+                pass
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}

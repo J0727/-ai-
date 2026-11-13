@@ -594,11 +594,33 @@
                         <li>OpenAlex / arXiv / Crossref 等：用于文献检索（仅发送检索词）</li>
                     </ul>
                 </div>
-                <div id="privacyStats" class="text-xs text-slate-600"></div>
+                <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1">
+                    <div class="font-semibold text-slate-700">用户数据目录（本机 E 盘）</div>
+                    <div id="privacyDir" class="font-mono text-[11px] text-slate-600 break-all">—</div>
+                    <div id="privacyConsent" class="text-slate-500"></div>
+                    <div id="privacyStats" class="text-slate-600"></div>
+                </div>
                 <div class="flex flex-wrap gap-2 pt-1">
+                    <button id="privacyGrant" class="px-3 py-1.5 text-xs bg-purple-600 text-white rounded-lg hover:bg-purple-700">授权使用 E 盘目录</button>
+                    <button id="privacyRevoke" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg hover:bg-slate-50">撤销授权</button>
                     <button id="privacyClearTrans" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg hover:bg-slate-50">清空翻译缓存</button>
                     <button id="privacyClearAll" class="px-3 py-1.5 text-xs bg-white border border-red-300 text-red-600 rounded-lg hover:bg-red-50">清空本机全部数据</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 首次运行：用户数据目录授权 -->
+    <div id="consentModal" class="fixed inset-0 z-[70] hidden items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/70"></div>
+        <div class="glass-panel relative w-full max-w-md mx-4 p-6 rounded-2xl">
+            <h3 class="text-base font-bold text-slate-800 mb-2"><i class="fa-solid fa-shield-halved mr-2 text-purple-600"></i>用户数据存储授权</h3>
+            <p class="text-sm text-slate-600 leading-relaxed mb-2">为保护隐私，本软件计划在您的电脑上创建专用数据文件夹，用于保存账号、浏览记录与团队文档：</p>
+            <p class="font-mono text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 mb-2 break-all">E:\智汇研途-用户数据</p>
+            <p class="text-xs text-slate-500 leading-relaxed mb-3">该文件夹的访问权限将收紧为「当前用户 + 系统账户」，其他用户无法访问；数据不会上传云端。</p>
+            <div class="flex gap-2">
+                <button id="consentYes" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-sm">同意并创建</button>
+                <button id="consentNo" class="flex-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-600 py-2 rounded-lg text-sm">拒绝（仅临时存储）</button>
             </div>
         </div>
     </div>
@@ -2464,8 +2486,53 @@
                 el.innerHTML = `当前登录：<b>${escapeHtml(user)}</b>　本机账号：<b>${accounts}</b> 个　翻译缓存：<b>${trans}</b>`;
             } catch (e) { el.textContent = ''; }
         }
+
+        async function loadPrivacyStatus(showConsent) {
+            try {
+                const r = await fetch(`${_api()}/api/privacy/status`);
+                const d = await r.json();
+                document.getElementById('privacyDir').textContent = d.current_dir || '—';
+                const c = document.getElementById('privacyConsent');
+                if (d.consented) {
+                    c.textContent = `已授权 · 数据库 ${d.db_size_kb} KB · 目录 ${d.dir_size_kb} KB`;
+                    c.className = 'text-green-700';
+                } else {
+                    c.textContent = '未授权 · 当前使用系统临时目录（重启可能丢失）';
+                    c.className = 'text-amber-700';
+                }
+                if (showConsent && d.needs_consent) {
+                    const m = document.getElementById('consentModal');
+                    m.classList.remove('hidden');
+                    m.classList.add('flex');
+                }
+            } catch (e) {}
+        }
+
+        async function setConsent(agree) {
+            try {
+                await fetch(`${_api()}/api/privacy/consent`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ agree })
+                });
+            } catch (e) {}
+            const m = document.getElementById('consentModal');
+            m.classList.add('hidden');
+            m.classList.remove('flex');
+            await loadPrivacyStatus(false);
+        }
+
+        document.getElementById('consentYes').addEventListener('click', () => setConsent(true));
+        document.getElementById('consentNo').addEventListener('click', () => setConsent(false));
+        document.getElementById('privacyGrant').addEventListener('click', () => setConsent(true));
+        document.getElementById('privacyRevoke').addEventListener('click', () => {
+            if (!confirm('撤销授权后，新数据将写入临时目录（E 盘已存数据保留）。确定撤销？')) return;
+            setConsent(false);
+        });
+
         document.getElementById('privacyBtn').addEventListener('click', () => {
             privacyStats();
+            loadPrivacyStatus(false);
             const m = document.getElementById('privacyModal');
             m.classList.remove('hidden');
             m.classList.add('flex');
@@ -2493,6 +2560,7 @@
             initChart();
             addMessage('ai', '你好！我是你的科研助手，已加载 DeepSeek-V4-Pro 模型。请告诉我你当前研究的课题，开始你的科研之旅。');
             simulateAgentWorkflow();
+            setTimeout(() => loadPrivacyStatus(true), 1200);
         });
     </script>
 </body>
