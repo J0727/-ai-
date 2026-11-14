@@ -121,7 +121,7 @@
 
         <!-- 主工作区 -->
         <section class="flex-1 flex flex-col bg-slate-50 min-w-0">
-            <div class="px-6 py-4 bg-white/50 backdrop-blur-sm border-b border-slate-200 flex justify-between items-center">
+            <div class="px-6 pt-5 pb-3 flex justify-between items-center">
                 <div>
                     <h2 id="currentProjectTitle" class="text-lg font-bold text-slate-800">暂无课题</h2>
                     <div id="projectTags" class="flex gap-2 mt-1" style="display:none">
@@ -760,7 +760,10 @@
             const t = document.getElementById('currentProjectTitle');
             const tags = document.getElementById('projectTags');
             const exp = document.getElementById('exportBtn');
-            if (t) t.textContent = hasProject ? (title || '') : '暂无课题';
+            if (t) {
+                t.textContent = hasProject ? (title || '') : '';
+                t.style.display = hasProject ? 'block' : 'none';
+            }
             if (tags) tags.style.display = hasProject ? 'flex' : 'none';
             if (exp) exp.style.display = hasProject ? 'inline-flex' : 'none';
         }
