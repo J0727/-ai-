@@ -840,6 +840,7 @@ class TranslateResponse(BaseModel):
     target_name: str = ""
     uncertain_terms: list[str] = []
     uncertain_sources: list[str] = []
+    uncertain_pairs: list[dict] = []
 
 
 @app.get("/api/languages")
@@ -868,6 +869,7 @@ def translate(req: TranslateRequest):
     translated = raw
     uncertain = []
     uncertain_src = []
+    pairs = []
     try:
         import json as _json
 
@@ -883,6 +885,8 @@ def translate(req: TranslateRequest):
                         uncertain.append(tgt)
                     if src:
                         uncertain_src.append(src)
+                    if src or tgt:
+                        pairs.append({"source": src, "target": tgt})
                 else:
                     s = str(it).strip()
                     if s:
@@ -895,6 +899,7 @@ def translate(req: TranslateRequest):
         target_name=target_name,
         uncertain_terms=uncertain,
         uncertain_sources=uncertain_src,
+        uncertain_pairs=pairs,
     )
 
 
