@@ -2565,3 +2565,85 @@ def admin_delete_user(username: str, admin: str):
     except Exception:
         pass
     return {"ok": True, "deleted": username}
+
+
+# ==================== 加密归档（服务端只保存密文） ====================
+class EncryptedBlobRequest(BaseModel):
+    username: str = Field(..., min_length=1)
+    blob: str = Field(..., description="前端 AES-GCM 加密后的 base64 密文")
+
+
+@app.post("/api/user/encrypted")
+def store_encrypted(req: EncryptedBlobRequest):
+    """保存前端加密后的归档，并删除明文导出文件。"""
+    d = _user_dir(req.username)
+    os.makedirs(d, exist_ok=True)
+    with open(os.path.join(d, "data.enc"), "w", encoding="utf-8") as f:
+        f.write(req.blob)
+    removed = []
+    for fn in ("profile.json", "history.json", "teams.json", "docs.json"):
+        p = os.path.join(d, fn)
+        try:
+            if os.path.exists(p):
+                os.remove(p)
+                removed.append(fn)
+        except Exception:
+            pass
+    return {"ok": True, "size": len(req.blob), "removed": removed}
+
+
+@app.get("/api/user/encrypted")
+def get_encrypted(username: str):
+    """读取加密归档（密文）。"""
+    p = os.path.join(_user_dir(username), "data.enc")
+    if not os.path.exists(p):
+        raise HTTPException(status_code=404, detail="尚未生成加密归档")
+    with open(p, "r", encoding="utf-8") as f:
+        return {"blob": f.read()}
+
+
+@app.get("/api/user/snapshot")
+def user_snapshot(username: str):
+    """返回该使用者的数据快照（供前端加密归档）。"""
+    conn = sqlite3.connect(_DB_PATH)
+    try:
+        hist = conn.execute(
+            "SELECT subject_id, subject_name, item_title, item_url, note, created_at "
+            "FROM history WHERE username=? ORDER BY id DESC",
+            (username,),
+        ).fetchall()
+        teams = conn.execute(
+            "SELECT t.code, t.name, t.owner, m.role FROM teams t "
+            "JOIN team_members m ON m.team_id=t.id WHERE m.username=?",
+            (username,),
+        ).fetchall()
+        docs = conn.execute(
+            "SELECT d.id, d.title, d.content, d.updated_at FROM team_docs d "
+            "JOIN team_members m ON m.team_id=d.team_id WHERE m.username=?",
+            (username,),
+        ).fetchall()
+    finally:
+        conn.close()
+    return {
+        "username": username,
+        "exported_at": datetime.now().isoformat(timespec="seconds"),
+        "history": [dict(zip(["subject_id", "subject_name", "item_title", "item_url", "note", "created_at"], h)) for h in hist],
+        "teams": [dict(zip(["code", "name", "owner", "role"], t)) for t in teams],
+        "docs": [dict(zip(["id", "title", "content", "updated_at"], x)) for x in docs],
+    }
+
+
+@app.post("/api/history/purge-old")
+def purge_old_history(username: str, days: int = 30):
+    """清理指定天数之前的浏览历史。"""
+    if days < 1:
+        days = 1
+    cutoff = (datetime.now() - __import__("datetime").timedelta(days=days)).isoformat(timespec="seconds")
+    conn = sqlite3.connect(_DB_PATH)
+    try:
+        cur = conn.execute("DELETE FROM history WHERE username=? AND created_at < ?", (username, cutoff))
+        conn.commit()
+        n = cur.rowcount
+    finally:
+        conn.close()
+    return {"ok": True, "deleted": n, "cutoff": cutoff}

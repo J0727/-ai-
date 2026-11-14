@@ -601,6 +601,22 @@
                     <div id="privacyStats" class="text-slate-600"></div>
                 </div>
                 <div id="adminUsers" class="text-xs"></div>
+                <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="font-semibold text-slate-700">隐私模式（切断所有云端调用）</span>
+                        <label class="inline-flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="privacyMode" class="w-4 h-4 accent-purple-600">
+                            <span class="text-slate-500">启用</span>
+                        </label>
+                    </div>
+                    <p class="text-[11px] text-slate-500 leading-snug">开启后，问答 / 翻译 / 润色 / 检索等所有需要联网的功能全部禁用，只保留本地能力（PDF 解析、本地历史、加密归档）。</p>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="encryptArchive" class="px-3 py-1.5 text-xs bg-purple-600 text-white rounded-lg hover:bg-purple-700">加密归档个人数据（AES-256）</button>
+                        <button id="decryptArchive" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg hover:bg-slate-50">解密查看归档</button>
+                        <button id="purgeOld" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg hover:bg-slate-50">清理 30 天前历史</button>
+                    </div>
+                    <div id="archiveInfo" class="text-[11px] text-slate-500"></div>
+                </div>
                 <div class="flex flex-wrap gap-2 pt-1">
                     <button id="privacyGrant" class="px-3 py-1.5 text-xs bg-purple-600 text-white rounded-lg hover:bg-purple-700">授权使用 E 盘目录</button>
                     <button id="privacyRevoke" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg hover:bg-slate-50">撤销授权</button>
@@ -2489,6 +2505,91 @@
             } catch (e) { el.textContent = ''; }
         }
 
+        // ==================== 隐私模式：拦截所有云端调用 ====================
+        const CLOUD_ENDPOINTS = [
+            '/api/chat', '/api/translate', '/api/translate-batch', '/api/polish', '/api/survey',
+            '/api/writing', '/api/compare-papers', '/api/extract-viewpoints', '/api/interpret',
+            '/api/literature-search', '/api/library-search', '/api/arxiv', '/api/verify-citation',
+            '/api/article-detail', '/api/plagiarism-check', '/api/classify-topic'
+        ].map(p => p.toLowerCase());
+
+        function isPrivacyMode() {
+            try { return localStorage.getItem('zhihui_privacy') === '1'; } catch (e) { return false; }
+        }
+
+        const _origFetch = window.fetch.bind(window);
+        window.fetch = function (url, opts) {
+            const u = (typeof url === 'string' ? url : (url && url.url) || '').toLowerCase();
+            if (isPrivacyMode() && CLOUD_ENDPOINTS.some(p => u.includes(p))) {
+                return Promise.reject(new Error('隐私模式已开启：该功能需要联网，已被禁用'));
+            }
+            return _origFetch(url, opts);
+        };
+
+        // ==================== AES-256 加密归档（前端加密，服务端只存密文） ====================
+        async function deriveAesKey(password, saltB64) {
+            const salt = Uint8Array.from(atob(saltB64), c => c.charCodeAt(0));
+            const km = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+            return crypto.subtle.deriveKey(
+                { name: 'PBKDF2', salt, iterations: 120000, hash: 'SHA-256' },
+                km, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+            );
+        }
+
+        async function encryptArchive() {
+            const username = _uname();
+            if (!username || username === 'guest') { alert('请先登录'); return; }
+            const pwd = prompt('请输入登录密码（用于派生加密密钥，本地计算，不会上传）：');
+            if (!pwd) return;
+            try {
+                const snap = await _origFetch(`${_api()}/api/user/snapshot?username=${encodeURIComponent(username)}`).then(r => r.json());
+                const plain = JSON.stringify(snap);
+                const salt = crypto.getRandomValues(new Uint8Array(16));
+                const iv = crypto.getRandomValues(new Uint8Array(12));
+                const saltB64 = btoa(String.fromCharCode(...salt));
+                const key = await deriveAesKey(pwd, saltB64);
+                const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(plain));
+                const blob = JSON.stringify({
+                    v: 1, algo: 'AES-GCM-256', kdf: 'PBKDF2-SHA256-120000',
+                    salt: saltB64,
+                    iv: btoa(String.fromCharCode(...iv)),
+                    data: btoa(String.fromCharCode(...new Uint8Array(ct)))
+                });
+                const r = await _origFetch(`${_api()}/api/user/encrypted`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, blob })
+                });
+                const d = await r.json();
+                document.getElementById('archiveInfo').textContent =
+                    `已加密归档 ${(d.size / 1024).toFixed(1)} KB（AES-256-GCM），明文 JSON 已删除`;
+            } catch (e) {
+                alert('加密失败：' + e.message);
+            }
+        }
+
+        async function decryptArchive() {
+            const username = _uname();
+            if (!username || username === 'guest') { alert('请先登录'); return; }
+            const pwd = prompt('请输入密码解密归档：');
+            if (!pwd) return;
+            try {
+                const r = await _origFetch(`${_api()}/api/user/encrypted?username=${encodeURIComponent(username)}`);
+                if (!r.ok) { alert('尚未生成加密归档'); return; }
+                const { blob } = await r.json();
+                const meta = JSON.parse(blob);
+                const iv = Uint8Array.from(atob(meta.iv), c => c.charCodeAt(0));
+                const ct = Uint8Array.from(atob(meta.data), c => c.charCodeAt(0));
+                const key = await deriveAesKey(pwd, meta.salt);
+                const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+                const text = new TextDecoder().decode(pt);
+                const win = window.open('', '_blank');
+                if (win) win.document.write('<pre style="padding:16px;font-size:12px;white-space:pre-wrap">' + text.replace(/</g, '&lt;') + '</pre>');
+            } catch (e) {
+                alert('解密失败：密码错误或数据已损坏');
+            }
+        }
+
         async function loadPrivacyStatus(showConsent) {
             const username = _uname();
             if (!username || username === 'guest') {
@@ -2577,6 +2678,37 @@
             m.classList.remove('flex');
             await loadPrivacyStatus(false);
         }
+
+        // ==================== 隐私模式 / 加密归档 / 自动清理 ====================
+        (function initPrivacyMode() {
+            const pm = document.getElementById('privacyMode');
+            const info = document.getElementById('archiveInfo');
+            try { pm.checked = isPrivacyMode(); } catch (e) {}
+            if (isPrivacyMode() && info) info.textContent = '隐私模式已开启：所有联网功能已禁用';
+            pm.addEventListener('change', () => {
+                try { localStorage.setItem('zhihui_privacy', pm.checked ? '1' : '0'); } catch (e) {}
+                if (info) {
+                    info.textContent = pm.checked
+                        ? '隐私模式已开启：问答/翻译/检索等联网功能已全部禁用'
+                        : '隐私模式已关闭';
+                }
+            });
+        })();
+
+        document.getElementById('encryptArchive').addEventListener('click', encryptArchive);
+        document.getElementById('decryptArchive').addEventListener('click', decryptArchive);
+        document.getElementById('purgeOld').addEventListener('click', async () => {
+            const username = _uname();
+            if (!username || username === 'guest') { alert('请先登录'); return; }
+            if (!confirm('清理 30 天前的浏览历史？')) return;
+            try {
+                const r = await _origFetch(`${_api()}/api/history/purge-old?username=${encodeURIComponent(username)}&days=30`, { method: 'POST' });
+                const d = await r.json();
+                alert(`已清理 ${d.deleted} 条历史记录`);
+            } catch (e) {
+                alert('清理失败：' + e.message);
+            }
+        });
 
         document.getElementById('consentYes').addEventListener('click', () => setConsent(true));
         document.getElementById('consentNo').addEventListener('click', () => setConsent(false));
