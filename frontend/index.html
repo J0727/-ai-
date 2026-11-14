@@ -2922,7 +2922,39 @@
                         <div class="flex flex-wrap justify-center gap-2 mt-10">
                             ${LIT_DBS.map(d => `<div class="lit-db px-3 py-2 rounded-xl bg-white/80 border border-slate-100 text-[11px] font-medium text-slate-400 hover:text-purple-600 hover:border-purple-200 hover:bg-white transition-colors cursor-default" title="${d.name}">${d.abbr}</div>`).join('')}
                         </div>
-                        <p class="text-center text-[11px] text-slate-400 mt-2">鼠标悬停查看数据库全称</p>
+                        <p class="text-center text-[11px] text-slate-400 mt-2">鼠标悬停查看数据库全称（以上均为免费开放库）</p>
+
+                        <div class="mt-6 flex flex-col items-center gap-2">
+                            <button id="tpCnkiBtn" class="flex items-center gap-2 px-4 py-2 bg-white border border-amber-200 rounded-xl text-sm text-amber-700 hover:bg-amber-50 hover:border-amber-300 transition-colors">
+                                <i class="fa-solid fa-lock text-xs"></i>
+                                知网 CNKI
+                                <span class="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">付费库</span>
+                            </button>
+                            <p class="text-[11px] text-slate-400 text-center leading-relaxed">
+                                知网为付费数据库，需会员或机构授权。本软件<b>不会</b>代您登录或抓取，仅在您同意后跳转官网。
+                            </p>
+                        </div>
+
+                        <div id="tpCnkiModal" class="hidden fixed inset-0 z-[80] items-center justify-center">
+                            <div class="absolute inset-0 bg-slate-900/60"></div>
+                            <div class="relative w-full max-w-md mx-4 bg-white rounded-2xl p-6 shadow-2xl">
+                                <h3 class="text-base font-bold text-slate-800 mb-2"><i class="fa-solid fa-shield-halved mr-2 text-amber-600"></i>访问知网需要您的授权</h3>
+                                <div class="text-xs text-slate-600 leading-relaxed space-y-2 mb-4">
+                                    <p>知网（CNKI）是<b>付费数据库</b>，没有公开 API。本软件只会帮您在浏览器新标签页打开知网检索页，<b>不会</b>代您登录、不会获取您的账号密码、也不会抓取数据。</p>
+                                    <div class="p-2 rounded-lg bg-amber-50 border border-amber-100 text-amber-800">
+                                        <b>会员提醒：</b>如需下载全文，请在知网官网充值个人会员（或使用学校/机构的校园网 IP / VPN 访问）。
+                                    </div>
+                                </div>
+                                <label class="flex items-center gap-2 text-xs text-slate-600 mb-4 cursor-pointer">
+                                    <input type="checkbox" id="tpCnkiRemember" class="w-4 h-4 accent-purple-600">
+                                    记住我的选择，以后不再询问
+                                </label>
+                                <div class="flex gap-2">
+                                    <button id="tpCnkiYes" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-sm">同意并打开知网</button>
+                                    <button id="tpCnkiNo" class="flex-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-600 py-2 rounded-lg text-sm">取消</button>
+                                </div>
+                            </div>
+                        </div>
 
                         <div id="tpLitProgress" class="mt-8 hidden grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
                         <div id="tpLitOut" class="mt-6"></div>
@@ -3035,6 +3067,40 @@
                         if (!okList.length) html += '<p class="text-sm text-slate-400">所有数据库均未返回结果，请稍后重试</p>';
                         outEl.innerHTML = html;
                     };
+
+                    // ==================== 知网 CNKI 浅接入（授权 + 会员提醒 + 跳转） ====================
+                    const CNKI_KEY = 'zhihui_cnki_consent';
+                    const cnkiModal = document.getElementById('tpCnkiModal');
+                    const openCnki = () => {
+                        const q = (qEl.value || '').trim();
+                        const remember = document.getElementById('tpCnkiRemember').checked;
+                        try { if (remember) localStorage.setItem(CNKI_KEY, '1'); } catch (e) {}
+                        cnkiModal.classList.add('hidden');
+                        cnkiModal.classList.remove('flex');
+                        const url = q
+                            ? 'https://kns.cnki.net/kns8s/defaultresult/index?kw=' + encodeURIComponent(q)
+                            : 'https://www.cnki.net/';
+                        window.open(url, '_blank');
+                        _record('browse', `知网检索：${q || '首页'}`, 'CNKI（外链）', 'https://www.cnki.net/');
+                    };
+                    document.getElementById('tpCnkiBtn').onclick = () => {
+                        let consented = false;
+                        try { consented = localStorage.getItem(CNKI_KEY) === '1'; } catch (e) {}
+                        if (consented) { openCnki(); return; }
+                        cnkiModal.classList.remove('hidden');
+                        cnkiModal.classList.add('flex');
+                    };
+                    document.getElementById('tpCnkiYes').onclick = openCnki;
+                    document.getElementById('tpCnkiNo').onclick = () => {
+                        cnkiModal.classList.add('hidden');
+                        cnkiModal.classList.remove('flex');
+                    };
+                    cnkiModal.addEventListener('click', (e) => {
+                        if (e.target === cnkiModal) {
+                            cnkiModal.classList.add('hidden');
+                            cnkiModal.classList.remove('flex');
+                        }
+                    });
 
                     runEl.onclick = run;
                     qEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') run(); });
