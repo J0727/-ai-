@@ -113,6 +113,96 @@ def _revoke_consent():
     _compute_data_paths()
 
 
+# ==================== 多用户数据隔离（每个使用者一个独立文件夹 + 权限） ====================
+_USER_DIR_ROOT = os.path.join(_DEFAULT_DATA_DIR, "users")
+
+
+def _safe_name(name: str) -> str:
+    s = re.sub(r"[^\w\u4e00-\u9fa5.\-]", "_", (name or "").strip())[:40]
+    return s or "user"
+
+
+def _user_dir(username: str) -> str:
+    return os.path.join(_USER_DIR_ROOT, _safe_name(username))
+
+
+def _user_consent_path(username: str) -> str:
+    return os.path.join(_user_dir(username), "consent.json")
+
+
+def _has_user_consent(username: str) -> bool:
+    return os.path.exists(_user_consent_path(username))
+
+
+def _user_role(username: str) -> str:
+    conn = sqlite3.connect(_DB_PATH)
+    try:
+        row = conn.execute("SELECT role FROM user_meta WHERE username=?", (username,)).fetchone()
+        return row[0] if row else ""
+    except Exception:
+        return ""
+    finally:
+        conn.close()
+
+
+def _upsert_user_meta(username: str, consented: bool):
+    """写入/更新用户元数据；首个使用者自动成为 admin。"""
+    conn = sqlite3.connect(_DB_PATH)
+    try:
+        now = datetime.now().isoformat(timespec="seconds")
+        row = conn.execute("SELECT role FROM user_meta WHERE username=?", (username,)).fetchone()
+        if row:
+            conn.execute(
+                "UPDATE user_meta SET consented=?, last_seen=? WHERE username=?",
+                (1 if consented else 0, now, username),
+            )
+        else:
+            has_admin = conn.execute("SELECT COUNT(*) FROM user_meta WHERE role='admin'").fetchone()[0]
+            role = "admin" if has_admin == 0 else "member"
+            conn.execute(
+                "INSERT INTO user_meta (username, role, consented, created_at, last_seen) VALUES (?, ?, ?, ?, ?)",
+                (username, role, 1 if consented else 0, now, now),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _export_user_data(username: str) -> dict:
+    """把该用户的业务数据导出为 JSON，写入其个人文件夹。"""
+    d = _user_dir(username)
+    os.makedirs(d, exist_ok=True)
+    conn = sqlite3.connect(_DB_PATH)
+    try:
+        hist = conn.execute(
+            "SELECT subject_id, subject_name, item_title, item_url, note, created_at "
+            "FROM history WHERE username=? ORDER BY id DESC",
+            (username,),
+        ).fetchall()
+        teams = conn.execute(
+            "SELECT t.code, t.name, t.owner, m.role FROM teams t "
+            "JOIN team_members m ON m.team_id=t.id WHERE m.username=?",
+            (username,),
+        ).fetchall()
+        docs = conn.execute(
+            "SELECT d.id, d.title, d.content, d.updated_at FROM team_docs d "
+            "JOIN team_members m ON m.team_id=d.team_id WHERE m.username=?",
+            (username,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    def _w(fn, obj):
+        with open(os.path.join(d, fn), "w", encoding="utf-8") as f:
+            json.dump(obj, f, ensure_ascii=False, indent=2)
+
+    _w("profile.json", {"username": username, "exported_at": datetime.now().isoformat(timespec="seconds")})
+    _w("history.json", [dict(zip(["subject_id", "subject_name", "item_title", "item_url", "note", "created_at"], h)) for h in hist])
+    _w("teams.json", [dict(zip(["code", "name", "owner", "role"], t)) for t in teams])
+    _w("docs.json", [dict(zip(["id", "title", "content", "updated_at"], x)) for x in docs])
+    return {"history": len(hist), "teams": len(teams), "docs": len(docs)}
+
+
 def _init_user_db():
     conn = sqlite3.connect(_DB_PATH)
     conn.execute(
@@ -133,6 +223,14 @@ def _init_user_db():
         "item_url TEXT, "
         "note TEXT, "
         "created_at TEXT NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS user_meta ("
+        "username TEXT PRIMARY KEY, "
+        "role TEXT NOT NULL DEFAULT 'member', "
+        "consented INTEGER NOT NULL DEFAULT 0, "
+        "created_at TEXT NOT NULL, "
+        "last_seen TEXT)"
     )
     conn.execute(
         "CREATE TABLE IF NOT EXISTS teams ("
@@ -2290,9 +2388,16 @@ def interpret(req: InterpretRequest):
     return InterpretResponse(explanation=result["answer"], model=result["model"])
 
 
-# ==================== 隐私与本地数据目录 ====================
+# ==================== 隐私与本地数据目录（多使用者隔离） ====================
 class ConsentRequest(BaseModel):
-    agree: bool = Field(..., description="是否同意在本机创建用户数据目录")
+    username: str = Field(..., min_length=1, description="使用者用户名")
+    agree: bool = Field(..., description="该使用者是否同意为本人创建数据目录")
+
+
+class RoleRequest(BaseModel):
+    admin: str = Field(..., min_length=1)
+    username: str = Field(..., min_length=1)
+    role: str = Field("member", description="admin / member")
 
 
 def _dir_size(path: str) -> int:
@@ -2310,42 +2415,153 @@ def _dir_size(path: str) -> int:
 
 
 @app.get("/api/privacy/status")
-def privacy_status():
-    """返回用户数据目录、授权状态与占用空间。"""
-    consent_path = os.path.join(_DEFAULT_DATA_DIR, _CONSENT_FILE_NAME)
+def privacy_status(username: str = ""):
+    """返回数据目录与「当前使用者」的授权状态。"""
     db_path = os.path.join(_DATA_DIR, "users.db")
-    return {
+    resp = {
         "default_dir": _DEFAULT_DATA_DIR,
         "current_dir": _DATA_DIR,
         "needs_consent": _NEEDS_CONSENT,
-        "consented": os.path.exists(consent_path),
-        "db_exists": os.path.exists(db_path),
+        "consented": os.path.exists(os.path.join(_DEFAULT_DATA_DIR, _CONSENT_FILE_NAME)),
         "db_size_kb": round((os.path.getsize(db_path) / 1024) if os.path.exists(db_path) else 0, 1),
         "dir_size_kb": round(_dir_size(_DATA_DIR) / 1024, 1),
     }
+    if username:
+        udir = _user_dir(username)
+        resp.update({
+            "username": username,
+            "user_dir": udir,
+            "user_consented": _has_user_consent(username),
+            "user_role": _user_role(username),
+            "user_dir_size_kb": round(_dir_size(udir) / 1024, 1),
+        })
+    return resp
 
 
 @app.post("/api/privacy/consent")
 def privacy_consent(req: ConsentRequest):
-    """仅在用户明确同意后创建数据目录；拒绝则撤销。"""
-    if req.agree:
+    """使用者本人同意后，才创建其个人数据目录并导出其数据。"""
+    if not req.agree:
+        try:
+            p = _user_consent_path(req.username)
+            if os.path.exists(p):
+                os.remove(p)
+        except Exception:
+            pass
+        _upsert_user_meta(req.username, False)
+        return {"ok": True, "consented": False, "dir": ""}
+
+    if not os.path.exists(os.path.join(_DEFAULT_DATA_DIR, _CONSENT_FILE_NAME)):
         _grant_consent()
-        return {"ok": True, "consented": True, "dir": _DATA_DIR}
-    _revoke_consent()
-    return {"ok": True, "consented": False, "dir": _DATA_DIR}
+    udir = _user_dir(req.username)
+    os.makedirs(udir, exist_ok=True)
+    _secure_dir(udir)
+    with open(_user_consent_path(req.username), "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "username": req.username,
+                "agreed_at": datetime.now().isoformat(timespec="seconds"),
+                "scope": "个人数据目录",
+            },
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
+    _upsert_user_meta(req.username, True)
+    stats = _export_user_data(req.username)
+    return {
+        "ok": True,
+        "consented": True,
+        "dir": udir,
+        "role": _user_role(req.username),
+        "exported": stats,
+    }
 
 
 @app.post("/api/privacy/purge")
-def privacy_purge():
-    """清空业务数据表（保留授权状态）。"""
+def privacy_purge(username: str = ""):
+    """清空业务数据：指定使用者时只清本人，否则清空全部。"""
     conn = sqlite3.connect(_DB_PATH)
     try:
-        for t in ("history", "team_docs", "team_members", "teams"):
-            try:
-                conn.execute(f"DELETE FROM {t}")
-            except Exception:
-                pass
+        if username:
+            conn.execute("DELETE FROM history WHERE username=?", (username,))
+            conn.execute("DELETE FROM team_members WHERE username=?", (username,))
+        else:
+            for t in ("history", "team_docs", "team_members", "teams"):
+                try:
+                    conn.execute(f"DELETE FROM {t}")
+                except Exception:
+                    pass
         conn.commit()
     finally:
         conn.close()
     return {"ok": True}
+
+
+# ==================== 使用者管理（管理员权限） ====================
+@app.get("/api/admin/users")
+def admin_users(admin: str):
+    """管理员查看全部使用者、角色与数据目录占用。"""
+    if _user_role(admin) != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可查看使用者列表")
+    conn = sqlite3.connect(_DB_PATH)
+    try:
+        rows = conn.execute(
+            "SELECT username, role, consented, created_at, last_seen FROM user_meta ORDER BY created_at"
+        ).fetchall()
+    except Exception:
+        rows = []
+    finally:
+        conn.close()
+    users = []
+    for r in rows:
+        udir = _user_dir(r[0])
+        users.append({
+            "username": r[0],
+            "role": r[1],
+            "consented": bool(r[2]),
+            "created_at": r[3],
+            "last_seen": r[4],
+            "dir": udir,
+            "dir_size_kb": round(_dir_size(udir) / 1024, 1),
+        })
+    return {"count": len(users), "users": users}
+
+
+@app.post("/api/admin/role")
+def admin_set_role(req: RoleRequest):
+    """管理员调整使用者角色。"""
+    if _user_role(req.admin) != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可修改角色")
+    role = req.role if req.role in ("admin", "member") else "member"
+    conn = sqlite3.connect(_DB_PATH)
+    try:
+        conn.execute("UPDATE user_meta SET role=? WHERE username=?", (role, req.username))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True, "username": req.username, "role": role}
+
+
+@app.delete("/api/admin/users/{username}")
+def admin_delete_user(username: str, admin: str):
+    """管理员删除某个使用者的数据（记录 + 个人目录）。"""
+    if _user_role(admin) != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可删除使用者数据")
+    conn = sqlite3.connect(_DB_PATH)
+    try:
+        conn.execute("DELETE FROM history WHERE username=?", (username,))
+        conn.execute("DELETE FROM team_members WHERE username=?", (username,))
+        conn.execute("DELETE FROM user_meta WHERE username=?", (username,))
+        conn.commit()
+    finally:
+        conn.close()
+    try:
+        import shutil
+
+        d = _user_dir(username)
+        if os.path.isdir(d):
+            shutil.rmtree(d, ignore_errors=True)
+    except Exception:
+        pass
+    return {"ok": True, "deleted": username}

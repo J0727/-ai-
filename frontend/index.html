@@ -595,11 +595,12 @@
                     </ul>
                 </div>
                 <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1">
-                    <div class="font-semibold text-slate-700">用户数据目录（本机 E 盘）</div>
+                    <div class="font-semibold text-slate-700">个人数据目录（本机 E 盘）</div>
                     <div id="privacyDir" class="font-mono text-[11px] text-slate-600 break-all">—</div>
                     <div id="privacyConsent" class="text-slate-500"></div>
                     <div id="privacyStats" class="text-slate-600"></div>
                 </div>
+                <div id="adminUsers" class="text-xs"></div>
                 <div class="flex flex-wrap gap-2 pt-1">
                     <button id="privacyGrant" class="px-3 py-1.5 text-xs bg-purple-600 text-white rounded-lg hover:bg-purple-700">授权使用 E 盘目录</button>
                     <button id="privacyRevoke" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg hover:bg-slate-50">撤销授权</button>
@@ -616,7 +617,8 @@
         <div class="glass-panel relative w-full max-w-md mx-4 p-6 rounded-2xl">
             <h3 class="text-base font-bold text-slate-800 mb-2"><i class="fa-solid fa-shield-halved mr-2 text-purple-600"></i>用户数据存储授权</h3>
             <p class="text-sm text-slate-600 leading-relaxed mb-2">为保护隐私，本软件计划在您的电脑上创建专用数据文件夹，用于保存账号、浏览记录与团队文档：</p>
-            <p class="font-mono text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 mb-2 break-all">E:\智汇研途-用户数据</p>
+            <p id="consentUser" class="text-xs text-purple-700 mb-1">使用者：—</p>
+            <p class="font-mono text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 mb-2 break-all">E:\智汇研途-用户数据\users\&lt;使用者&gt;</p>
             <p class="text-xs text-slate-500 leading-relaxed mb-3">该文件夹的访问权限将收紧为「当前用户 + 系统账户」，其他用户无法访问；数据不会上传云端。</p>
             <div class="flex gap-2">
                 <button id="consentYes" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-sm">同意并创建</button>
@@ -2488,32 +2490,86 @@
         }
 
         async function loadPrivacyStatus(showConsent) {
+            const username = _uname();
+            if (!username || username === 'guest') {
+                document.getElementById('privacyDir').textContent = '请先登录，登录后才会创建个人数据目录';
+                document.getElementById('privacyConsent').textContent = '';
+                return;
+            }
             try {
-                const r = await fetch(`${_api()}/api/privacy/status`);
+                const r = await fetch(`${_api()}/api/privacy/status?username=${encodeURIComponent(username)}`);
                 const d = await r.json();
-                document.getElementById('privacyDir').textContent = d.current_dir || '—';
+                document.getElementById('consentUser').textContent = `使用者：${username}`;
+                document.getElementById('privacyDir').textContent = d.user_dir || '—';
                 const c = document.getElementById('privacyConsent');
-                if (d.consented) {
-                    c.textContent = `已授权 · 数据库 ${d.db_size_kb} KB · 目录 ${d.dir_size_kb} KB`;
+                if (d.user_consented) {
+                    const roleName = d.user_role === 'admin' ? '管理员' : '普通使用者';
+                    c.textContent = `已授权 · ${roleName} · 个人目录 ${d.user_dir_size_kb} KB`;
                     c.className = 'text-green-700';
                 } else {
-                    c.textContent = '未授权 · 当前使用系统临时目录（重启可能丢失）';
+                    c.textContent = '未授权 · 尚未创建个人数据目录';
                     c.className = 'text-amber-700';
                 }
-                if (showConsent && d.needs_consent) {
+                if (showConsent && !d.user_consented) {
                     const m = document.getElementById('consentModal');
                     m.classList.remove('hidden');
                     m.classList.add('flex');
                 }
+                if (d.user_role === 'admin') {
+                    await loadAdminUsers(username);
+                } else {
+                    document.getElementById('adminUsers').innerHTML = '';
+                }
+            } catch (e) {}
+        }
+
+        async function loadAdminUsers(admin) {
+            const box = document.getElementById('adminUsers');
+            if (!box) return;
+            try {
+                const r = await fetch(`${_api()}/api/admin/users?admin=${encodeURIComponent(admin)}`);
+                if (!r.ok) { box.innerHTML = ''; return; }
+                const d = await r.json();
+                box.innerHTML = `<div class="p-3 bg-purple-50 border border-purple-100 rounded-lg space-y-1">
+                    <div class="font-semibold text-purple-700">使用者管理（管理员，共 ${d.count} 人）</div>` +
+                    d.users.map(u => `<div class="flex items-center gap-2 py-1 border-b border-purple-100/60">
+                        <span class="flex-1 text-slate-700">${escapeHtml(u.username)}
+                          <span class="text-slate-400">· ${u.role === 'admin' ? '管理员' : '普通使用者'} · ${u.dir_size_kb} KB</span></span>
+                        <button class="text-purple-600 hover:underline" data-role="${escapeHtml(u.username)}">${u.role === 'admin' ? '降为成员' : '设为管理员'}</button>
+                        <button class="text-red-500 hover:underline" data-del="${escapeHtml(u.username)}">删除数据</button>
+                    </div>`).join('') + '</div>';
+                box.querySelectorAll('[data-role]').forEach(b => {
+                    b.onclick = async () => {
+                        const u = b.getAttribute('data-role');
+                        const cur = d.users.find(x => x.username === u);
+                        const role = cur && cur.role === 'admin' ? 'member' : 'admin';
+                        await fetch(`${_api()}/api/admin/role`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ admin, username: u, role })
+                        });
+                        await loadAdminUsers(admin);
+                    };
+                });
+                box.querySelectorAll('[data-del]').forEach(b => {
+                    b.onclick = async () => {
+                        const u = b.getAttribute('data-del');
+                        if (!confirm(`确定删除使用者「${u}」的全部数据（含个人目录）？`)) return;
+                        await fetch(`${_api()}/api/admin/users/${encodeURIComponent(u)}?admin=${encodeURIComponent(admin)}`, { method: 'DELETE' });
+                        await loadAdminUsers(admin);
+                    };
+                });
             } catch (e) {}
         }
 
         async function setConsent(agree) {
+            const username = _uname();
+            if (!username || username === 'guest') { alert('请先登录后再授权'); return; }
             try {
                 await fetch(`${_api()}/api/privacy/consent`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ agree })
+                    body: JSON.stringify({ username, agree })
                 });
             } catch (e) {}
             const m = document.getElementById('consentModal');
