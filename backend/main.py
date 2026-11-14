@@ -2920,3 +2920,31 @@ def literature_source(slug: str, query: str, limit: int = 5):
         return {"source": key, "ok": True, "count": len(out), "items": out}
     except Exception as e:
         return {"source": key, "ok": False, "error": str(e)[:120], "items": []}
+
+# ==================== 文献解析（结构化精读） ====================
+class AnalyzeRequest(BaseModel):
+    text: str = Field(..., min_length=20, description="文献正文或摘要")
+
+
+class AnalyzeResponse(BaseModel):
+    analysis: str
+    model: str
+
+
+@app.post("/api/analyze-paper", response_model=AnalyzeResponse)
+def analyze_paper(req: AnalyzeRequest):
+    """对单篇文献做结构化解析：问题/方法/数据/结论/创新/局限/可借鉴。"""
+    prompt = (
+        "你是科研文献精读助手。请对下面这篇文献做结构化解析，用 Markdown 输出，"
+        "每个部分 3~6 条要点，语言精炼、避免空话：\n\n"
+        "## 一、研究问题\n"
+        "## 二、方法与技术路线\n"
+        "## 三、数据与实验设置\n"
+        "## 四、主要结论\n"
+        "## 五、创新点\n"
+        "## 六、局限性\n"
+        "## 七、可借鉴之处\n\n"
+        "文献内容：\n" + req.text[:12000]
+    )
+    result = call_deepseek(prompt, 0.3, "")
+    return AnalyzeResponse(analysis=result["answer"], model=result["model"])

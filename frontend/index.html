@@ -291,6 +291,10 @@
                     <i class="fa-solid fa-file-arrow-up text-purple-600 text-xl"></i>
                     <span class="text-xs text-slate-700">导入文献 PDF</span>
                 </button>
+                <button id="analyzeBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
+                    <i class="fa-solid fa-magnifying-glass-plus text-purple-600 text-xl"></i>
+                    <span class="text-xs text-slate-700">文献解析</span>
+                </button>
                 <button id="readerBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
                     <i class="fa-solid fa-file-pdf text-purple-600 text-xl"></i>
                     <span class="text-xs text-slate-700">PDF 版式阅读</span>
@@ -3131,6 +3135,56 @@
                     };
                 }
             },
+            analyze: {
+                title: '文献解析', hint: '结构化精读：问题 · 方法 · 数据 · 结论 · 创新 · 局限',
+                render: () => `
+                    <div class="max-w-4xl mx-auto p-6">
+                        <p class="text-sm text-slate-500 mb-3">上传 PDF 或直接粘贴文献内容，AI 会输出结构化精读报告。</p>
+                        <div class="flex flex-wrap items-center gap-2 mb-3">
+                            <input type="file" id="tpAnFile" accept=".pdf,.txt" class="text-xs text-slate-600 border border-slate-300 rounded-lg p-2">
+                            <button id="tpAnExtract" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg hover:bg-slate-50">提取 PDF 文本</button>
+                            <span id="tpAnFileInfo" class="text-xs text-slate-400"></span>
+                        </div>
+                        <textarea id="tpAnText" rows="10" placeholder="粘贴文献正文或摘要…" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-3 outline-none resize-none"></textarea>
+                        <button id="tpAnRun" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">开始解析</button>
+                        <div id="tpAnOut" class="mt-4 text-sm text-slate-700 leading-relaxed"></div>
+                    </div>`,
+                bind: () => {
+                    const ta = document.getElementById('tpAnText');
+                    const info = document.getElementById('tpAnFileInfo');
+                    const out = document.getElementById('tpAnOut');
+                    document.getElementById('tpAnExtract').onclick = async () => {
+                        const f = document.getElementById('tpAnFile').files[0];
+                        if (!f) { info.textContent = '请先选择文件'; return; }
+                        info.textContent = '提取中…';
+                        const fd = new FormData();
+                        fd.append('file', f);
+                        try {
+                            const r = await fetch(`${_api()}/api/extract-text`, { method: 'POST', body: fd });
+                            const d = await r.json();
+                            if (!r.ok) { info.textContent = '提取失败'; return; }
+                            ta.value = d.text || '';
+                            info.textContent = `已提取 ${d.chars} 字`;
+                        } catch (e) { info.textContent = '提取失败：' + e.message; }
+                    };
+                    document.getElementById('tpAnRun').onclick = async () => {
+                        const text = (ta.value || '').trim();
+                        if (text.length < 20) { out.innerHTML = '<p class="text-amber-600">请至少输入 20 个字</p>'; return; }
+                        out.innerHTML = '<p class="text-slate-400">解析中…</p>';
+                        try {
+                            const r = await fetch(`${_api()}/api/analyze-paper`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ text })
+                            });
+                            const d = await r.json();
+                            if (!r.ok) { out.innerHTML = `<p class="text-red-500">失败：${escapeHtml(d.detail || '')}</p>`; return; }
+                            out.innerHTML = renderMarkdown(d.analysis || '');
+                            _record('query', '文献解析', (d.analysis || '').slice(0, 200), '');
+                        } catch (e) { out.innerHTML = `<p class="text-red-500">失败：${escapeHtml(e.message)}</p>`; }
+                    };
+                }
+            },
             reader: {
                 title: 'PDF 版式阅读', hint: '浏览器原生渲染，保留原始排版',
                 render: () => `
@@ -3402,7 +3456,7 @@
             const btn = e.target.closest('button[id]');
             if (!btn) return;
             const map = {
-                litBtn: 'lit', uploadBtn: 'upload', readerBtn: 'reader', compareBtn: 'compare',
+                litBtn: 'lit', uploadBtn: 'upload', analyzeBtn: 'analyze', readerBtn: 'reader', compareBtn: 'compare',
                 surveyBtn: 'survey', viewpointBtn: 'viewpoint', interpretBtn: 'interpret',
                 translateBtn: 'translate', polishBtn: 'polish', citeBtn: 'cite', privacyBtn: 'privacy'
             };
