@@ -2909,6 +2909,16 @@
                             ${['transformer', 'LLM', 'YOLOv8', 'AGI', 'RAG', 'diffusion model'].map(t => `<button class="lit-tag px-3 py-1 text-xs bg-white border border-slate-200 rounded-full text-slate-600 hover:border-purple-300 hover:text-purple-600 hover:bg-purple-50 transition-colors" data-q="${t}">${t}</button>`).join('')}
                         </div>
 
+                        <div class="flex items-center justify-center gap-2 mt-3">
+                            <span class="text-xs text-slate-400">每库条数</span>
+                            <select id="tpLitLimit" class="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-600 outline-none focus:border-purple-300">
+                                <option value="10">10 条</option>
+                                <option value="20" selected>20 条</option>
+                                <option value="50">50 条</option>
+                                <option value="100">100 条（最多）</option>
+                            </select>
+                        </div>
+
                         <div class="flex flex-wrap justify-center gap-2 mt-10">
                             ${LIT_DBS.map(d => `<div class="lit-db px-3 py-2 rounded-xl bg-white/80 border border-slate-100 text-[11px] font-medium text-slate-400 hover:text-purple-600 hover:border-purple-200 hover:bg-white transition-colors cursor-default" title="${d.name}">${d.abbr}</div>`).join('')}
                         </div>
@@ -2950,6 +2960,7 @@
                             outEl.innerHTML = '<p class="text-sm text-amber-600">请使用英文关键词检索（如 transformer、large language model、YOLOv8）</p>';
                             return;
                         }
+                        const lim = parseInt((document.getElementById('tpLitLimit') || {}).value || '20', 10) || 20;
 
                         runEl.disabled = true;
                         btnText.textContent = '检索中…';
@@ -2967,7 +2978,7 @@
                         const tasks = LIT_DBS.map(async (d) => {
                             setProg(d.slug, 'loading', '检索中');
                             try {
-                                const r = await fetch(`${_api()}/api/literature/${d.slug}?query=${encodeURIComponent(q)}&limit=5`);
+                                const r = await fetch(`${_api()}/api/literature/${d.slug}?query=${encodeURIComponent(q)}&limit=${lim}`);
                                 const data = await r.json();
                                 if (data.ok) {
                                     setProg(d.slug, 'ok', `已响应 ${data.count} 篇`);

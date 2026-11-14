@@ -1414,10 +1414,10 @@ def _openalex_abstract(it) -> str:
     return " ".join(w for _, w in pairs)
 
 
-def _plag_openalex(qvec, query, kw):
+def _plag_openalex(qvec, query, kw, limit=5):
     resp = requests.get(
         "https://api.openalex.org/works",
-        params={"search": query, "per-page": 5},
+        params={"search": query, "per-page": limit},
         timeout=15,
     )
     resp.raise_for_status()
@@ -1434,12 +1434,12 @@ def _plag_openalex(qvec, query, kw):
     return out
 
 
-def _plag_arxiv(qvec, query, kw):
+def _plag_arxiv(qvec, query, kw, limit=5):
     import xml.etree.ElementTree as ET
 
     resp = requests.get(
         "http://export.arxiv.org/api/query",
-        params={"search_query": f"all:{query}", "max_results": 5},
+        params={"search_query": f"all:{query}", "max_results": limit},
         timeout=15,
     )
     resp.raise_for_status()
@@ -1459,10 +1459,10 @@ def _plag_arxiv(qvec, query, kw):
     return out
 
 
-def _plag_europepmc(qvec, query, kw):
+def _plag_europepmc(qvec, query, kw, limit=5):
     resp = requests.get(
         "https://www.ebi.ac.uk/europepmc/webservices/rest/search",
-        params={"query": query, "format": "json", "pageSize": 5},
+        params={"query": query, "format": "json", "pageSize": limit},
         timeout=15,
     )
     resp.raise_for_status()
@@ -1480,12 +1480,12 @@ def _plag_europepmc(qvec, query, kw):
     return out
 
 
-def _plag_doaj(qvec, query, kw):
+def _plag_doaj(qvec, query, kw, limit=5):
     from urllib.parse import quote as _quote
 
     resp = requests.get(
         f"https://doaj.org/api/search/articles/{_quote(query, safe='')}",
-        params={"pageSize": 5},
+        params={"pageSize": limit},
         timeout=15,
     )
     resp.raise_for_status()
@@ -1539,10 +1539,10 @@ def _get_with_ip(url, params=None, timeout=25, ip_list=None):
     raise last
 
 
-def _plag_zenodo(qvec, query, kw):
+def _plag_zenodo(qvec, query, kw, limit=5):
     resp = _get_with_ip(
         "https://zenodo.org/api/records",
-        params={"q": query, "size": 5},
+        params={"q": query, "size": limit},
         timeout=25,
         ip_list=_ZENODO_IPS,
     )
@@ -1562,10 +1562,10 @@ def _plag_zenodo(qvec, query, kw):
     return out
 
 
-def _plag_crossref(qvec, query, kw):
+def _plag_crossref(qvec, query, kw, limit=5):
     resp = requests.get(
         "https://api.crossref.org/works",
-        params={"query.bibliographic": query, "rows": 5},
+        params={"query.bibliographic": query, "rows": limit},
         timeout=15,
         headers={"User-Agent": "zhihui-yantu/1.0"},
     )
@@ -1590,7 +1590,7 @@ def _plag_crossref(qvec, query, kw):
     return out
 
 
-def _plag_openaire(qvec, query, kw):
+def _plag_openaire(qvec, query, kw, limit=5):
     def _val(v):
         if isinstance(v, list):
             v = v[0] if v else None
@@ -1600,7 +1600,7 @@ def _plag_openaire(qvec, query, kw):
 
     resp = requests.get(
         "https://api.openaire.eu/search/publications",
-        params={"title": kw, "size": 5, "format": "json"},
+        params={"title": kw, "size": limit, "format": "json"},
         timeout=45,
     )
     resp.raise_for_status()
@@ -1623,10 +1623,10 @@ def _plag_openaire(qvec, query, kw):
     return out
 
 
-def _plag_pubmed(qvec, query, kw):
+def _plag_pubmed(qvec, query, kw, limit=5):
     r = requests.get(
         "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
-        params={"db": "pubmed", "term": kw, "retmode": "json", "retmax": 5},
+        params={"db": "pubmed", "term": kw, "retmode": "json", "retmax": limit},
         timeout=15,
     )
     r.raise_for_status()
@@ -2906,8 +2906,9 @@ def literature_source(slug: str, query: str, limit: int = 5):
     if not fn:
         raise HTTPException(status_code=404, detail="未知文献源")
     try:
+        lim = max(1, min(limit, 100))
         qvec = _hash_embed(query)
-        items = fn(qvec, query, " ".join(query.split()[:12]))
+        items = fn(qvec, query, " ".join(query.split()[:12]), lim)
         out = [
             {
                 "title": x.get("title", ""),
@@ -2915,7 +2916,7 @@ def literature_source(slug: str, query: str, limit: int = 5):
                 "url": x.get("url", ""),
             }
             for x in items
-        ][:limit]
+        ][:lim]
         return {"source": key, "ok": True, "count": len(out), "items": out}
     except Exception as e:
         return {"source": key, "ok": False, "error": str(e)[:120], "items": []}
