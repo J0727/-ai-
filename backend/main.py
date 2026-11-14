@@ -258,6 +258,34 @@ def _init_user_db():
         "updated_by TEXT, "
         "updated_at TEXT NOT NULL)"
     )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS projects ("
+        "id TEXT PRIMARY KEY, "
+        "username TEXT NOT NULL, "
+        "title TEXT NOT NULL, "
+        "status TEXT NOT NULL DEFAULT 'active', "
+        "created_at TEXT NOT NULL, "
+        "updated_at TEXT NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS messages ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "project_id TEXT NOT NULL, "
+        "role TEXT NOT NULL, "
+        "content TEXT NOT NULL, "
+        "sources TEXT, "
+        "created_at TEXT NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS records ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "username TEXT NOT NULL, "
+        "kind TEXT NOT NULL, "
+        "title TEXT NOT NULL, "
+        "detail TEXT, "
+        "url TEXT, "
+        "created_at TEXT NOT NULL)"
+    )
     conn.commit()
     conn.close()
 
@@ -2647,3 +2675,152 @@ def purge_old_history(username: str, days: int = 30):
     finally:
         conn.close()
     return {"ok": True, "deleted": n, "cutoff": cutoff}
+
+
+# ==================== 项目 / 对话 / 历史记录（持久化） ====================
+class ProjectCreate(BaseModel):
+    username: str = Field(..., min_length=1)
+    title: str = Field(..., min_length=1, max_length=120)
+
+
+class MessageCreate(BaseModel):
+    role: str = Field(..., description="user / ai")
+    content: str = ""
+    sources: str = ""
+
+
+class RecordCreate(BaseModel):
+    username: str = Field(..., min_length=1)
+    kind: str = Field(..., description="browse / search / query")
+    title: str = Field(..., min_length=1)
+    detail: str = ""
+    url: str = ""
+
+
+@app.get("/api/projects")
+def list_projects(username: str):
+    """列出某使用者的全部课题（含消息数）。"""
+    conn = sqlite3.connect(_DB_PATH)
+    try:
+        rows = conn.execute(
+            "SELECT p.id, p.title, p.status, p.created_at, p.updated_at, "
+            "(SELECT COUNT(*) FROM messages m WHERE m.project_id=p.id) AS msg_count "
+            "FROM projects p WHERE p.username=? ORDER BY p.updated_at DESC",
+            (username,),
+        ).fetchall()
+    finally:
+        conn.close()
+    return {
+        "projects": [
+            {"id": r[0], "title": r[1], "status": r[2], "created_at": r[3], "updated_at": r[4], "messages": r[5]}
+            for r in rows
+        ]
+    }
+
+
+@app.post("/api/projects")
+def create_project(req: ProjectCreate):
+    pid = secrets.token_hex(8)
+    now = datetime.now().isoformat(timespec="seconds")
+    conn = sqlite3.connect(_DB_PATH)
+    try:
+        conn.execute(
+            "INSERT INTO projects (id, username, title, status, created_at, updated_at) "
+            "VALUES (?, ?, ?, 'active', ?, ?)",
+            (pid, req.username, req.title, now, now),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True, "id": pid, "title": req.title, "status": "active",
+            "created_at": now, "updated_at": now, "messages": 0}
+
+
+@app.delete("/api/projects/{pid}")
+def delete_project(pid: str, username: str):
+    conn = sqlite3.connect(_DB_PATH)
+    try:
+        conn.execute("DELETE FROM messages WHERE project_id=?", (pid,))
+        conn.execute("DELETE FROM projects WHERE id=? AND username=?", (pid, username))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+
+@app.get("/api/projects/{pid}/messages")
+def list_messages(pid: str):
+    conn = sqlite3.connect(_DB_PATH)
+    try:
+        rows = conn.execute(
+            "SELECT role, content, sources, created_at FROM messages WHERE project_id=? ORDER BY id",
+            (pid,),
+        ).fetchall()
+    finally:
+        conn.close()
+    return {
+        "messages": [
+            {"role": r[0], "content": r[1], "sources": r[2] or "", "created_at": r[3]}
+            for r in rows
+        ]
+    }
+
+
+@app.post("/api/projects/{pid}/messages")
+def add_message(pid: str, req: MessageCreate):
+    now = datetime.now().isoformat(timespec="seconds")
+    conn = sqlite3.connect(_DB_PATH)
+    try:
+        conn.execute(
+            "INSERT INTO messages (project_id, role, content, sources, created_at) VALUES (?, ?, ?, ?, ?)",
+            (pid, req.role, req.content, req.sources, now),
+        )
+        conn.execute("UPDATE projects SET updated_at=? WHERE id=?", (now, pid))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+
+@app.get("/api/records")
+def list_records(username: str, kind: str = "", limit: int = 100):
+    """查询历史记录：kind=browse/search/query，留空返回全部。"""
+    conn = sqlite3.connect(_DB_PATH)
+    try:
+        if kind:
+            rows = conn.execute(
+                "SELECT id, kind, title, detail, url, created_at FROM records "
+                "WHERE username=? AND kind=? ORDER BY id DESC LIMIT ?",
+                (username, kind, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT id, kind, title, detail, url, created_at FROM records "
+                "WHERE username=? ORDER BY id DESC LIMIT ?",
+                (username, limit),
+            ).fetchall()
+    finally:
+        conn.close()
+    return {
+        "count": len(rows),
+        "records": [
+            {"id": r[0], "kind": r[1], "title": r[2], "detail": r[3], "url": r[4], "created_at": r[5]}
+            for r in rows
+        ],
+    }
+
+
+@app.post("/api/records")
+def add_record(req: RecordCreate):
+    """写入一条历史记录（浏览 / 搜索 / 查询）。"""
+    now = datetime.now().isoformat(timespec="seconds")
+    conn = sqlite3.connect(_DB_PATH)
+    try:
+        conn.execute(
+            "INSERT INTO records (username, kind, title, detail, url, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (req.username, req.kind, req.title, req.detail, req.url, now),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}

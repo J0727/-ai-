@@ -110,14 +110,8 @@
             </div>
             <div id="projectList" class="flex-1 overflow-y-auto p-4 space-y-3">
                 <p class="text-xs text-slate-400 font-medium uppercase tracking-wider" data-i18n="projectHistory">项目历史</p>
-                <div class="project-item p-3 rounded-lg bg-purple-50 border border-purple-100 cursor-pointer">
-                    <h3 class="font-semibold text-sm text-purple-900 truncate">大语言模型在医疗诊断中的应用</h3>
-                    <p class="text-xs text-purple-600 mt-1">2026-10-28 • 进行中</p>
-                </div>
-                <div class="project-item p-3 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 cursor-pointer transition-all">
-                    <h3 class="font-semibold text-sm text-slate-700 truncate">量子计算基础算法综述</h3>
-                    <p class="text-xs text-slate-500 mt-1">2026-10-25 • 已完成</p>
-                </div>
+                <div id="projectItems"></div>
+                <p id="projectEmpty" class="text-xs text-slate-400 leading-relaxed">还没有课题，点上方「新建研究课题」开始</p>
             </div>
             <div class="p-4 border-t border-slate-100 text-xs text-slate-400 text-center">
                 &copy; 2026 智汇研途 Team
@@ -735,7 +729,87 @@
                 .replace(/\n/g, '<br>');
         }
 
-        function addMessage(role, content, sources) {
+        // ==================== 项目 / 对话 / 记录 持久化 ====================
+        let currentProjectId = null;
+        const _renderingHistory = { v: false };
+
+        function _record(kind, title, detail, url) {
+            const username = _uname();
+            if (!username || username === 'guest') return;
+            try {
+                _origFetch(`${_api()}/api/records`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, kind, title, detail: detail || '', url: url || '' })
+                }).catch(() => {});
+            } catch (e) {}
+        }
+
+        async function persistMessage(role, content, sources) {
+            if (!currentProjectId) return;
+            try {
+                await _origFetch(`${_api()}/api/projects/${currentProjectId}/messages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role, content, sources: JSON.stringify(sources || []) })
+                });
+            } catch (e) {}
+        }
+
+        async function loadProjects() {
+            const username = _uname();
+            const box = document.getElementById('projectItems');
+            const empty = document.getElementById('projectEmpty');
+            if (!box) return;
+            if (!username || username === 'guest') {
+                box.innerHTML = '';
+                if (empty) { empty.style.display = 'block'; empty.textContent = '登录后会显示你的课题历史'; }
+                return;
+            }
+            try {
+                const r = await _origFetch(`${_api()}/api/projects?username=${encodeURIComponent(username)}`);
+                const d = await r.json();
+                const list = d.projects || [];
+                box.innerHTML = '';
+                if (empty) {
+                    empty.style.display = list.length ? 'none' : 'block';
+                    empty.textContent = '还没有课题，点上方「新建研究课题」开始';
+                }
+                list.forEach(p => {
+                    const div = document.createElement('div');
+                    const active = p.id === currentProjectId;
+                    div.className = 'p-3 rounded-lg cursor-pointer transition-all border ' +
+                        (active ? 'bg-purple-50 border-purple-100' : 'hover:bg-slate-50 border-transparent hover:border-slate-200');
+                    div.innerHTML = `<h3 class="font-semibold text-sm truncate ${active ? 'text-purple-900' : 'text-slate-700'}">${escapeHtml(p.title)}</h3>
+                        <p class="text-xs mt-1 ${active ? 'text-purple-600' : 'text-slate-500'}">${(p.updated_at || '').slice(0, 10)} · ${p.messages || 0} 条对话</p>`;
+                    div.onclick = () => selectProject(p);
+                    box.appendChild(div);
+                });
+            } catch (e) {}
+        }
+
+        async function selectProject(p) {
+            currentProjectId = p.id;
+            currentProjectTitle.textContent = p.title;
+            chatContainer.innerHTML = '';
+            state.messages = [];
+            try {
+                const r = await _origFetch(`${_api()}/api/projects/${p.id}/messages`);
+                const d = await r.json();
+                const msgs = d.messages || [];
+                _renderingHistory.v = true;
+                msgs.forEach(m => {
+                    let srcs = [];
+                    try { srcs = m.sources ? JSON.parse(m.sources) : []; } catch (e) {}
+                    addMessage(m.role, m.content, srcs, false);
+                });
+                _renderingHistory.v = false;
+                if (!msgs.length) chatContainer.innerHTML = '';
+            } catch (e) {}
+            await loadProjects();
+        }
+
+        function addMessage(role, content, sources, persist = true) {
             const wrapper = document.createElement('div');
             wrapper.className = 'flex gap-3 max-w-4xl mx-auto';
             const isUser = role === 'user';
@@ -754,6 +828,7 @@
             wrapper.innerHTML = avatar + `<div class="max-w-[85%] ${bubble} p-4"><div class="leading-relaxed whitespace-pre-wrap markdown-body">${renderMarkdown(content)}</div>${sourcesHtml}</div>`;
             chatContainer.appendChild(wrapper);
             chatContainer.scrollTop = chatContainer.scrollHeight;
+            if (persist && !_renderingHistory.v) persistMessage(role, content, sources);
             return wrapper;
         }
 
@@ -839,9 +914,11 @@
             const replySources = realReply ? realReply.sources : [];
             state.messages.push({ role: 'ai', content: reply });
             addMessage('ai', reply, replySources);
+            _record('query', text.slice(0, 100), reply.slice(0, 300), '');
 
             state.isProcessing = false;
             setSendingDisabled(false);
+            if (currentProjectId) loadProjects();
         }
 
         // ==================== 键盘与按钮事件 ====================
@@ -862,15 +939,33 @@
             const name = prompt('请输入新课题名称：');
             if (!name || !name.trim()) return;
             const title = name.trim();
-            currentProjectTitle.textContent = title;
+            const username = _uname();
+            if (!username || username === 'guest') {
+                alert('请先登录后再创建课题，这样历史才能保存');
+                return;
+            }
 
+            // 先落库，确保刷新后还在
+            let pid = null;
+            try {
+                const r = await _origFetch(`${_api()}/api/projects`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, title })
+                });
+                const d = await r.json();
+                pid = d.id || null;
+            } catch (e) {}
+            if (!pid) { alert('创建失败，请确认后端已启动'); return; }
+
+            currentProjectId = pid;
+            currentProjectTitle.textContent = title;
             chatContainer.innerHTML = '';
             state.messages = [];
 
             let classMsg = `已创建新课题「${title}」，请告诉我你的研究问题。`;
             try {
-                const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
-                const resp = await fetch(`${apiBase}/api/classify-topic`, {
+                const resp = await fetch(`${_api()}/api/classify-topic`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ topic: title })
@@ -883,17 +978,8 @@
                 }
             } catch (e) {}
             addMessage('ai', classMsg);
-
-            const list = document.getElementById('projectList');
-            list.querySelectorAll('.project-item').forEach(el => {
-                el.className = 'project-item p-3 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 cursor-pointer transition-all';
-            });
-            const item = document.createElement('div');
-            item.className = 'project-item p-3 rounded-lg bg-purple-50 border border-purple-100 cursor-pointer';
-            const today = new Date().toISOString().slice(0, 10);
-            item.innerHTML = `<h3 class="font-semibold text-sm text-purple-900 truncate">${escapeHtml(title)}</h3><p class="text-xs text-purple-600 mt-1">${today} • 进行中</p>`;
-            const heading = list.querySelector('p');
-            list.insertBefore(item, heading.nextSibling);
+            _record('query', `新建课题：${title}`, classMsg.slice(0, 200), '');
+            await loadProjects();
         }
         newProjectBtn.addEventListener('click', createNewProject);
 
@@ -1338,6 +1424,7 @@
         async function searchLiterature(query) {
             const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
             addMessage('user', `请检索文献：${query}`);
+            _record('search', `文献检索：${query}`, '', '');
             const loading = addTypingIndicator();
             try {
                 const resp = await fetch(`${apiBase}/api/literature-search`, {
@@ -1926,6 +2013,7 @@
             const box = document.getElementById('subjectItems');
             document.getElementById('subjectChips').innerHTML = '';
             box.innerHTML = '<p class="text-sm text-slate-400">搜索中…</p>';
+            _record('search', `文献库搜索：${q}`, '', '');
             try {
                 const resp = await fetch(`${apiBase}/api/library-search`, {
                     method: 'POST',
@@ -2002,6 +2090,7 @@
             box.innerHTML = `<p class="text-sm text-slate-400">${escapeHtml(loadingLabel)}</p>`;
             let username = 'guest';
             try { username = localStorage.getItem('zhihui_user') || 'guest'; } catch (e) {}
+            _record('browse', `浏览学科：${subj.name}`, name, '');
             try {
                 await fetch(`${apiBase}/api/history`, {
                     method: 'POST',
@@ -2744,10 +2833,27 @@
         });
 
         // ==================== 页面初始化 ====================
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
             initChart();
-            addMessage('ai', '你好！我是你的科研助手，已加载 DeepSeek-V4-Pro 模型。请告诉我你当前研究的课题，开始你的科研之旅。');
             simulateAgentWorkflow();
+            try {
+                const username = _uname();
+                if (username && username !== 'guest') {
+                    await loadProjects();
+                    const r = await _origFetch(`${_api()}/api/projects?username=${encodeURIComponent(username)}`);
+                    const d = await r.json();
+                    const list = d.projects || [];
+                    if (list.length) {
+                        await selectProject(list[0]);
+                    } else {
+                        chatContainer.innerHTML = '';
+                        currentProjectId = null;
+                    }
+                } else {
+                    await loadProjects();
+                    addMessage('ai', '你好！我是你的科研助手。请点击右上角「登录 / 注册」，登录后你的课题、对话与检索记录都会自动保存。', null, false);
+                }
+            } catch (e) {}
             setTimeout(() => loadPrivacyStatus(true), 1200);
         });
     </script>
