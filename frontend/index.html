@@ -2975,35 +2975,49 @@
                         </div>`).join('');
                         outEl.innerHTML = '';
 
+                        const t0 = performance.now();
                         const tasks = LIT_DBS.map(async (d) => {
                             setProg(d.slug, 'loading', '检索中');
+                            const s = performance.now();
                             try {
                                 const r = await fetch(`${_api()}/api/literature/${d.slug}?query=${encodeURIComponent(q)}&limit=${lim}`);
                                 const data = await r.json();
+                                const ms = Math.round(performance.now() - s);
                                 if (data.ok) {
-                                    setProg(d.slug, 'ok', `已响应 ${data.count} 篇`);
-                                    return { db: d, ok: true, items: data.items || [] };
+                                    setProg(d.slug, 'ok', `${data.count} 篇 · ${(ms / 1000).toFixed(2)}s`);
+                                    return { db: d, ok: true, items: data.items || [], ms };
                                 }
-                                setProg(d.slug, 'fail', '失败');
-                                return { db: d, ok: false, items: [] };
+                                setProg(d.slug, 'fail', `失败 · ${(ms / 1000).toFixed(2)}s`);
+                                return { db: d, ok: false, items: [], ms };
                             } catch (e) {
-                                setProg(d.slug, 'fail', '超时');
-                                return { db: d, ok: false, items: [] };
+                                const ms = Math.round(performance.now() - s);
+                                setProg(d.slug, 'fail', `超时 · ${(ms / 1000).toFixed(2)}s`);
+                                return { db: d, ok: false, items: [], ms };
                             }
                         });
 
                         const settled = (await Promise.allSettled(tasks))
                             .map(x => x.status === 'fulfilled' ? x.value : null)
                             .filter(Boolean);
+                        const totalMs = Math.round(performance.now() - t0);
                         const okList = settled.filter(x => x.ok);
                         const failList = settled.filter(x => !x.ok);
+                        const byMs = [...settled].sort((a, b) => (a.ms || 0) - (b.ms || 0));
+                        const fastest = byMs[0];
+                        const slowest = byMs[byMs.length - 1];
 
                         runEl.disabled = false;
                         btnText.textContent = '检索';
                         spin.classList.add('hidden');
 
                         const total = okList.reduce((n, x) => n + (x.items || []).length, 0);
-                        let html = `<div class="text-sm text-slate-600 mb-3">共 <b class="text-purple-600">${total}</b> 条结果 · 成功 <b>${okList.length}</b> / ${LIT_DBS.length} 个库</div>`;
+                        let html = `<div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600 mb-3">
+                            <span>共 <b class="text-purple-600">${total}</b> 条</span>
+                            <span>成功 <b>${okList.length}</b> / ${LIT_DBS.length} 个库</span>
+                            <span>总耗时 <b class="text-purple-600">${(totalMs / 1000).toFixed(2)} 秒</b></span>
+                            ${fastest ? `<span class="text-xs text-slate-400">最快 ${fastest.db.name} ${(fastest.ms / 1000).toFixed(2)}s</span>` : ''}
+                            ${slowest && slowest !== fastest ? `<span class="text-xs text-slate-400">最慢 ${slowest.db.name} ${(slowest.ms / 1000).toFixed(2)}s</span>` : ''}
+                        </div>`;
                         if (failList.length) {
                             html += `<div class="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-100 text-xs text-amber-700">部分数据库检索失败（${failList.map(x => x.db.name).join('、')}），以下为成功结果。</div>`;
                         }
