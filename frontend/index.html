@@ -127,6 +127,8 @@
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
         }
+        /* 隐藏浅灰色副标题 */
+        #toolPageHint { display: none !important; }
         /* 聊天气泡 */
         #chatContainer > div { animation: msg-in .28s ease both; }
         @keyframes msg-in {
@@ -3225,7 +3227,6 @@
                 title: '导入文献 PDF', hint: '文本型 PDF 直读，扫描件自动 OCR',
                 render: () => `
                     <div class="max-w-3xl mx-auto p-6">
-                    <p class="text-sm text-slate-500 mb-3">选择 PDF 文件，系统会解析、切片并写入本地向量库。</p>
                     <input type="file" id="tpUpFile" accept=".pdf" class="block w-full text-sm text-slate-600 border border-slate-300 rounded-lg p-3 mb-3">
                     <button id="tpUpRun" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">开始解析</button>
                     <div id="tpUpOut" class="mt-4 text-sm text-slate-700 whitespace-pre-wrap"></div>
@@ -3250,7 +3251,6 @@
                 title: '文献解析', hint: '结构化精读：问题 · 方法 · 数据 · 结论 · 创新 · 局限',
                 render: () => `
                     <div class="max-w-4xl mx-auto p-6">
-                        <p class="text-sm text-slate-500 mb-3">上传 PDF 或直接粘贴文献内容，AI 会输出结构化精读报告。</p>
                         <div class="flex flex-wrap items-center gap-2 mb-3">
                             <input type="file" id="tpAnFile" accept=".pdf,.txt" class="text-xs text-slate-600 border border-slate-300 rounded-lg p-2">
                             <button id="tpAnExtract" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg hover:bg-slate-50">提取 PDF 文本</button>
@@ -3316,7 +3316,6 @@
                 title: '多篇对比阅读', hint: '2~5 篇文献自动生成对比表',
                 render: () => `
                     <div class="max-w-4xl mx-auto p-6">
-                    <p class="text-sm text-slate-500 mb-3">粘贴 2~5 篇文献的摘要或关键段落。</p>
                     <textarea id="tpCmp0" rows="3" placeholder="文献 1 摘要/内容…" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-2 outline-none resize-none"></textarea>
                     <textarea id="tpCmp1" rows="3" placeholder="文献 2 摘要/内容…" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-2 outline-none resize-none"></textarea>
                     <textarea id="tpCmp2" rows="3" placeholder="文献 3（可选）…" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-3 outline-none resize-none"></textarea>
@@ -3341,7 +3340,6 @@
                 title: '综述一键写', hint: '基于已导入文献生成领域综述',
                 render: () => `
                     <div class="max-w-3xl mx-auto p-6">
-                    <p class="text-sm text-slate-500 mb-3">输入综述主题，系统基于已入库文献生成综述框架。</p>
                     <input id="tpSvTopic" placeholder="如：大模型在医疗诊断中的应用" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-3 outline-none focus:ring-2 focus:ring-purple-500">
                     <button id="tpSvRun" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">生成综述</button>
                     <div id="tpSvOut" class="mt-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed"></div>
@@ -3365,7 +3363,6 @@
                 title: '观点梳理', hint: '提取各家观点，生成对比表与大纲',
                 render: () => `
                     <div class="max-w-4xl mx-auto p-6">
-                    <p class="text-sm text-slate-500 mb-3">粘贴多篇文献内容或综述文本。</p>
                     <textarea id="tpVpText" rows="10" placeholder="粘贴文本…" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-3 outline-none resize-none"></textarea>
                     <button id="tpVpRun" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">梳理观点</button>
                     <div id="tpVpOut" class="mt-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed"></div>
@@ -3388,7 +3385,6 @@
                 title: '图表公式解读', hint: '解读图表、公式、表格',
                 render: () => `
                     <div class="max-w-4xl mx-auto p-6">
-                    <p class="text-sm text-slate-500 mb-3">粘贴图注、图表数据、公式或相关段落。</p>
                     <select id="tpIntKind" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-2 outline-none">
                         <option value="auto">自动识别</option><option value="figure">图表</option>
                         <option value="formula">公式</option><option value="table">表格</option>
@@ -3416,7 +3412,6 @@
                 title: '学术翻译', hint: '标准学术表达 + 不确定术语红色波浪线',
                 render: () => `
                     <div class="max-w-4xl mx-auto p-6">
-                    <p class="text-sm text-slate-500 mb-3">粘贴学术文本，选择目标语言。不确定的术语会用<b class="wavy-uncertain">红色波浪线</b>标出。</p>
                     <div class="flex gap-2 mb-2">
                         <select id="tpTrLang" class="px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none">
                             <option value="en">英语</option><option value="zh">中文</option><option value="ja">日语</option>
@@ -3467,7 +3462,6 @@
                 title: '学术润色', hint: '纠错 + 术语规范化 + 修改点清单',
                 render: () => `
                     <div class="max-w-4xl mx-auto p-6">
-                    <p class="text-sm text-slate-500 mb-3">粘贴需要润色的学术文本。</p>
                     <textarea id="tpPlText" rows="8" placeholder="粘贴文本…" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-3 outline-none resize-none"></textarea>
                     <button id="tpPlRun" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">开始润色</button>
                     <div id="tpPlOut" class="mt-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed"></div>
@@ -3490,7 +3484,6 @@
                 title: '引用管理', hint: 'GB/T 7714 · APA · MLA · BibTeX',
                 render: () => `
                     <div class="max-w-4xl mx-auto p-6">
-                    <p class="text-sm text-slate-500 mb-3">输入文献引用，系统去 Crossref 校验并返回候选记录。</p>
                     <input id="tpCiQ" placeholder="如：Attention Is All You Need, Vaswani, 2017" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-3 outline-none focus:ring-2 focus:ring-purple-500">
                     <button id="tpCiRun" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">校验</button>
                     <div id="tpCiOut" class="mt-4 space-y-2 text-sm text-slate-700"></div>
