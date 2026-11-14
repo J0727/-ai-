@@ -1504,11 +1504,47 @@ def _plag_doaj(qvec, query, kw):
     return out
 
 
+# ==================== DNS 被污染站点的 IP 直连（TLS 仍按域名校验） ====================
+import threading as _threading
+
+_DNS_LOCK = _threading.Lock()
+_ZENODO_IPS = ["188.185.47.192", "188.185.45.63", "137.138.121.78", "188.185.42.113", "188.185.40.132"]
+
+
+def _get_with_ip(url, params=None, timeout=25, ip_list=None):
+    """用固定 IP 建立连接（仅用于 DNS 被污染的域名），失败自动轮换 IP。"""
+    if not ip_list:
+        return requests.get(url, params=params, timeout=timeout)
+    from urllib.parse import urlparse
+    import socket as _socket
+
+    host = urlparse(url).hostname
+    last = None
+    for ip in ip_list:
+        with _DNS_LOCK:
+            orig = _socket.getaddrinfo
+
+            def _patched(h, p, *a, **k):
+                if h == host:
+                    return orig(ip, p, *a, **k)
+                return orig(h, p, *a, **k)
+
+            _socket.getaddrinfo = _patched
+            try:
+                return requests.get(url, params=params, timeout=timeout)
+            except Exception as e:
+                last = e
+            finally:
+                _socket.getaddrinfo = orig
+    raise last
+
+
 def _plag_zenodo(qvec, query, kw):
-    resp = requests.get(
+    resp = _get_with_ip(
         "https://zenodo.org/api/records",
         params={"q": query, "size": 5},
-        timeout=15,
+        timeout=25,
+        ip_list=_ZENODO_IPS,
     )
     resp.raise_for_status()
     out = []
@@ -1565,7 +1601,7 @@ def _plag_openaire(qvec, query, kw):
     resp = requests.get(
         "https://api.openaire.eu/search/publications",
         params={"title": kw, "size": 5, "format": "json"},
-        timeout=15,
+        timeout=45,
     )
     resp.raise_for_status()
     _rjson = resp.json() or {}
