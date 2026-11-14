@@ -2846,3 +2846,40 @@ def clear_records(username: str):
     finally:
         conn.close()
     return {"ok": True}
+
+# ==================== 单库检索（供前端并行 + 进度展示） ====================
+_LIT_SLUG_MAP = {
+    "openalex": "OpenAlex",
+    "arxiv": "arXiv",
+    "europepmc": "Europe PMC",
+    "doaj": "DOAJ",
+    "zenodo": "Zenodo",
+    "crossref": "Crossref",
+    "openaire": "OpenAIRE",
+    "pubmed": "PubMed",
+}
+
+
+@app.get("/api/literature/{slug}")
+def literature_source(slug: str, query: str, limit: int = 5):
+    """查询单个文献库，供前端 Promise.allSettled 并行调用。"""
+    key = _LIT_SLUG_MAP.get((slug or "").lower())
+    if not key:
+        raise HTTPException(status_code=404, detail="未知文献源")
+    fn = _PLAG_SOURCES.get(key)
+    if not fn:
+        raise HTTPException(status_code=404, detail="未知文献源")
+    try:
+        qvec = _hash_embed(query)
+        items = fn(qvec, query, " ".join(query.split()[:12]))
+        out = [
+            {
+                "title": x.get("title", ""),
+                "year": x.get("year", ""),
+                "url": x.get("url", ""),
+            }
+            for x in items
+        ][:limit]
+        return {"source": key, "ok": True, "count": len(out), "items": out}
+    except Exception as e:
+        return {"source": key, "ok": False, "error": str(e)[:120], "items": []}
