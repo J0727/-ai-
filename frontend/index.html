@@ -2900,10 +2900,10 @@
                             <h1 class="text-3xl font-bold text-[#1f2d3d]">📚 全网文献检索</h1>
                             <p class="text-sm text-[#8c98a4] mt-2 mb-10">聚合全球 8 个开放学术库，让知识触手可及</p>
 
-                            <div class="flex items-center bg-[#f8f9fb] border-2 border-[#e4e7ed] rounded-full pl-5 pr-1.5 py-1.5 transition-all focus-within:bg-white focus-within:border-[#4a90e2] focus-within:shadow-[0_0_0_4px_rgba(74,144,226,0.1)]">
+                            <div class="flex items-center bg-[#f8f9fb] border-2 border-[#e4e7ed] rounded-full pl-5 pr-1.5 py-1.5 transition-all focus-within:bg-white focus-within:border-[#7c3aed] focus-within:shadow-[0_0_0_4px_rgba(124,58,237,0.12)]">
                                 <i class="fa-solid fa-magnifying-glass text-[#a0aab5] mr-2"></i>
                                 <input id="tpLitQ" placeholder="请输入英文关键词，如: transformer" class="flex-1 min-w-0 bg-transparent border-none outline-none text-base py-3 text-[#333] placeholder:text-[#b0b8c1]">
-                                <button id="tpLitRun" class="shrink-0 bg-[#4a90e2] hover:bg-[#357abd] active:scale-[0.98] text-white rounded-full px-7 py-3 text-base font-medium transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2">
+                                <button id="tpLitRun" class="shrink-0 bg-[#7c3aed] hover:bg-[#6d28d9] active:scale-[0.98] text-white rounded-full px-7 py-3 text-base font-medium transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2">
                                     <i id="tpLitSpin" class="fa-solid fa-spinner fa-spin hidden"></i>
                                     <span id="tpLitBtnText">检索</span>
                                 </button>
@@ -2911,12 +2911,12 @@
 
                             <div class="flex flex-wrap justify-center items-center gap-2 mt-5 text-[13px] text-[#8c98a4]">
                                 <span>热门：</span>
-                                ${['Transformer', 'LLM', 'YOLOv8', 'AGI', 'RAG', 'diffusion model'].map(t => `<button class="lit-tag bg-[#f0f2f5] hover:bg-[#e1e5eb] hover:text-[#4a90e2] px-3 py-1 rounded-full transition-colors" data-q="${t}">${t}</button>`).join('')}
+                                ${['Transformer', 'LLM', 'YOLOv8', 'AGI', 'RAG', 'diffusion model'].map(t => `<button class="lit-tag bg-[#f0f2f5] hover:bg-[#e1e5eb] hover:text-[#7c3aed] px-3 py-1 rounded-full transition-colors" data-q="${t}">${t}</button>`).join('')}
                             </div>
 
                             <div class="flex items-center justify-center gap-2 mt-4 text-xs text-[#8c98a4]">
                                 <span>每库条数</span>
-                                <select id="tpLitLimit" class="text-xs border border-[#e4e7ed] rounded-full px-3 py-1 bg-white text-[#8c98a4] outline-none focus:border-[#4a90e2]">
+                                <select id="tpLitLimit" class="text-xs border border-[#e4e7ed] rounded-full px-3 py-1 bg-white text-[#8c98a4] outline-none focus:border-[#7c3aed]">
                                     <option value="10">10 条</option>
                                     <option value="20" selected>20 条</option>
                                     <option value="50">50 条</option>
