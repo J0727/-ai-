@@ -2824,3 +2824,25 @@ def add_record(req: RecordCreate):
     finally:
         conn.close()
     return {"ok": True}
+
+
+@app.delete("/api/records/{rid}")
+def delete_record(rid: int, username: str):
+    conn = sqlite3.connect(_DB_PATH)
+    try:
+        conn.execute("DELETE FROM records WHERE id=? AND username=?", (rid, username))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+
+@app.delete("/api/records")
+def clear_records(username: str):
+    conn = sqlite3.connect(_DB_PATH)
+    try:
+        conn.execute("DELETE FROM records WHERE username=?", (username,))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
