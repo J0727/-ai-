@@ -86,6 +86,66 @@
             z-index: 9999;
             pointer-events: none;
         }
+
+        /* ==================== 全局美化：设计系统 ==================== */
+        /* 工具页内容卡片 */
+        #toolPageBody > div:not(.no-card) {
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 10px 34px rgba(15, 23, 42, 0.06);
+            border: 1px solid rgba(226, 232, 240, 0.7);
+            margin: 24px auto;
+        }
+        /* 统一输入框 */
+        #toolPageBody textarea,
+        #toolPageBody input[type="text"],
+        #toolPageBody input:not([type]),
+        #toolPageBody input[type="file"] {
+            transition: border-color .2s, box-shadow .2s, background .2s;
+        }
+        #toolPageBody textarea:focus,
+        #toolPageBody input[type="text"]:focus,
+        #toolPageBody input:not([type]):focus {
+            border-color: var(--brand) !important;
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.10);
+        }
+        /* 统一主按钮 */
+        #toolPageBody button.bg-purple-600 {
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            box-shadow: 0 4px 14px rgba(124, 58, 237, 0.25);
+            transition: transform .15s, box-shadow .2s, filter .2s;
+        }
+        #toolPageBody button.bg-purple-600:hover {
+            filter: brightness(1.06);
+            box-shadow: 0 6px 20px rgba(124, 58, 237, 0.32);
+            transform: translateY(-1px);
+        }
+        #toolPageBody button.bg-purple-600:active { transform: translateY(0); }
+        /* 工具页顶栏 */
+        #toolPage > div:first-child {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        /* 聊天气泡 */
+        #chatContainer > div { animation: msg-in .28s ease both; }
+        @keyframes msg-in {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* 侧边栏项目 */
+        #projectItems > div { transition: transform .15s, box-shadow .2s, background .2s; }
+        #projectItems > div:hover { transform: translateX(2px); }
+        /* 顶栏细化 */
+        header { backdrop-filter: blur(8px); }
+        /* 输入区 */
+        #userInput { transition: box-shadow .2s, border-color .2s; }
+        #userInput:focus { box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.10); }
+        /* 卡片统一圆角与描边 */
+        .glass-panel { border-radius: 18px; }
+        /* 隐私面板放进工具页时隐藏"关闭"按钮与模态内间距 */
+        #toolPageBody #privacyClose { display: none; }
+        #toolPageBody .glass-panel { box-shadow: none; background: #fff; }
     </style>
 </head>
 <body class="text-slate-800 h-screen flex flex-col overflow-hidden">
@@ -168,10 +228,10 @@
             </div>
 
             <!-- 聊天消息区 -->
-            <div id="chatContainer" class="flex-1 overflow-y-auto px-6 py-6 space-y-4"></div>
+            <div id="chatContainer" class="flex-1 overflow-y-auto px-6 py-6 space-y-4 bg-gradient-to-b from-slate-50/60 to-white"></div>
 
             <!-- 输入区 -->
-            <div class="p-4 bg-white border-t border-slate-200">
+            <div class="p-4 bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(15,23,42,0.04)]">
                 <div class="max-w-4xl mx-auto flex items-end gap-3">
                     <textarea id="userInput" rows="1"
                         placeholder="输入你的研究问题，例如：帮我总结一下 Transformer 架构在 NLP 领域的最新进展..." data-i18n-placeholder="inputPlaceholder"
@@ -248,12 +308,16 @@
 
     <!-- 工具独立页面（hash 路由：#/tool/<key>） -->
     <section id="toolPage" class="flex-1 hidden flex-col overflow-hidden bg-slate-50">
-        <div class="px-6 py-4 bg-white border-b border-slate-200 flex items-center gap-3 shrink-0">
-            <button id="toolBackBtn" class="px-3 py-1.5 text-sm border border-slate-300 rounded-md hover:bg-slate-50 text-slate-600 transition-colors">
-                <i class="fa-solid fa-arrow-left mr-1"></i>返回
+        <div class="px-6 py-3 bg-white border-b border-slate-200/80 flex items-center gap-3 shrink-0 shadow-[0_1px_3px_rgba(15,23,42,0.04)]">
+            <button id="toolBackBtn" class="px-3 py-1.5 text-sm border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 text-slate-600 transition-all flex items-center gap-1.5">
+                <i class="fa-solid fa-arrow-left text-xs"></i>返回
             </button>
-            <h2 id="toolPageTitle" class="text-lg font-bold text-slate-800"></h2>
-            <span id="toolPageHint" class="text-xs text-slate-400"></span>
+            <div class="w-px h-5 bg-slate-200"></div>
+            <div class="flex items-center gap-2 min-w-0">
+                <i class="fa-solid fa-toolbox text-purple-500 text-sm"></i>
+                <h2 id="toolPageTitle" class="text-base font-semibold text-slate-800 truncate"></h2>
+                <span id="toolPageHint" class="text-xs text-slate-400 truncate hidden sm:inline"></span>
+            </div>
         </div>
         <div id="toolPageBody" class="flex-1 overflow-y-auto"></div>
     </section>
@@ -2941,7 +3005,7 @@
             lit: {
                 title: '全网文献检索', hint: '8 个开放学术库并行',
                 render: () => `
-                    <div class="max-w-4xl mx-auto px-6 pt-10 pb-16">
+                    <div class="max-w-4xl mx-auto px-6 pt-10 pb-16 no-card">
                         <div class="bg-white rounded-3xl shadow-[0_10px_40px_rgba(0,0,0,0.08)] px-8 py-12 sm:px-16 text-center">
                             <h1 class="text-3xl font-bold text-[#1f2d3d]">📚 全网文献检索</h1>
                             <p class="text-sm text-[#8c98a4] mt-2 mb-10">聚合全球 8 个开放学术库，让知识触手可及</p>
@@ -3453,7 +3517,7 @@
             },
             privacy: {
                 title: '隐私与数据', hint: '本地存储 · 加密归档 · 权限管理',
-                render: () => `<div class="max-w-3xl mx-auto p-6" id="tpPrivHost"></div>`,
+                render: () => `<div class="max-w-3xl mx-auto p-6 no-card" id="tpPrivHost"></div>`,
                 bind: () => {
                     const host = document.getElementById('tpPrivHost');
                     const panel = document.querySelector('#privacyModal .glass-panel');
