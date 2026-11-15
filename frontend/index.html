@@ -87,106 +87,468 @@
             pointer-events: none;
         }
 
-        /* ==================== 全局美化：设计系统 ==================== */
-        /* 工具页内容卡片 */
-        #toolPageBody > div:not(.no-card):not(.tool-head) {
-            background: #ffffff;
-            border-radius: 20px;
-            box-shadow: 0 10px 34px rgba(15, 23, 42, 0.06);
-            border: 1px solid rgba(226, 232, 240, 0.7);
-            margin: 24px auto;
+        /* ==================== 设计系统 ==================== */
+        :root {
+            --brand: #6d5bf6;
+            --brand-d: #5a47e6;
+            --brand-soft: #f3f1ff;
+            --ink: #101828;
+            --ink-2: #475467;
+            --muted: #98a2b3;
+            --line: #eaecf3;
+            --line-2: #dee2ee;
+            --bg: #f7f8fc;
+            --card-shadow: 0 1px 2px rgba(16,24,40,.04), 0 18px 44px -30px rgba(16,24,40,.28);
         }
-        /* 工具页标题区 */
-        .tool-head {
-            background: linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0) 100%);
-            padding-bottom: 4px;
+        body { background: var(--bg); color: var(--ink); }
+
+        /* ---------- 顶栏 ---------- */
+        header {
+            background: rgba(255,255,255,.82);
+            backdrop-filter: blur(16px) saturate(1.6);
+            -webkit-backdrop-filter: blur(16px) saturate(1.6);
+            border-bottom: 1px solid var(--line);
+            box-shadow: none;
         }
-        .tool-head .tool-icon {
-            box-shadow: 0 8px 22px rgba(124, 58, 237, 0.28);
+        header h1 { letter-spacing: -.02em; }
+        .brand-mark {
+            background: linear-gradient(140deg,#8f7dff 0%,#6350e8 55%,#4b3ad0 100%);
+            box-shadow: 0 10px 22px -10px rgba(99,80,232,.8), inset 0 1px 0 rgba(255,255,255,.4);
+            border-radius: 13px;
         }
-        /* 结果区空状态 */
-        #toolPageBody [id$="Out"].is-empty::before,
-        #toolPageBody [id$="Out"]:empty::before {
-            content: attr(data-empty);
-            display: block;
-            text-align: center;
-            padding: 36px 0;
-            font-size: 13px;
-            color: #cbd5e1;
+        #authBtn { border: 1px solid #e6e2ff; }
+
+        /* ---------- 侧栏 ---------- */
+        aside { background: #fcfcfe; }
+        #newProjectBtn {
+            background: linear-gradient(135deg,#7c6bf7,#5a47e6);
+            border-radius: 12px;
+            box-shadow: 0 10px 22px -14px rgba(90,71,230,.95);
         }
-        /* 统一输入框 */
-        #toolPageBody textarea,
-        #toolPageBody input[type="text"],
-        #toolPageBody input:not([type]),
-        #toolPageBody input[type="file"] {
-            transition: border-color .2s, box-shadow .2s, background .2s;
-        }
-        #toolPageBody textarea:focus,
-        #toolPageBody input[type="text"]:focus,
-        #toolPageBody input:not([type]):focus {
-            border-color: var(--brand) !important;
-            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.10);
-        }
-        /* 统一主按钮 */
-        #toolPageBody button.bg-purple-600 {
-            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-            box-shadow: 0 4px 14px rgba(124, 58, 237, 0.25);
-            transition: transform .15s, box-shadow .2s, filter .2s;
-        }
-        #toolPageBody button.bg-purple-600:hover {
-            filter: brightness(1.06);
-            box-shadow: 0 6px 20px rgba(124, 58, 237, 0.32);
-            transform: translateY(-1px);
-        }
-        #toolPageBody button.bg-purple-600:active { transform: translateY(0); }
-        /* 工具页顶栏 */
-        #toolPage > div:first-child {
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-        }
-        /* 隐藏浅灰色副标题 */
-        #toolPageHint { display: none !important; }
-        /* 聊天气泡 */
+        #newProjectBtn:hover { background: linear-gradient(135deg,#8577ff,#6250ee); }
+        #toolboxBtn { border-radius: 12px; border-color: var(--line-2); }
+        #toolboxBtn:hover { background: #f7f6ff; border-color: #d9d2ff; color: var(--brand); }
+        #projectItems > div { transition: transform .15s, box-shadow .2s, background .2s; }
+        #projectItems > div:hover { transform: translateX(2px); }
+
+        /* ---------- 聊天气泡 ---------- */
         #chatContainer > div { animation: msg-in .28s ease both; }
         @keyframes msg-in {
             from { opacity: 0; transform: translateY(6px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        /* 侧边栏项目 */
-        #projectItems > div { transition: transform .15s, box-shadow .2s, background .2s; }
-        #projectItems > div:hover { transform: translateX(2px); }
-        /* 顶栏细化 */
-        header { backdrop-filter: blur(8px); }
-        /* 输入区 */
-        #userInput { transition: box-shadow .2s, border-color .2s; }
-        #userInput:focus { box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.10); }
-        /* 卡片统一圆角与描边 */
+        .bubble-me {
+            background: linear-gradient(135deg,#7c6bf7,#5c49e8);
+            color: #fff;
+            border-radius: 18px 18px 6px 18px;
+            box-shadow: 0 10px 26px -16px rgba(92,73,232,.9);
+        }
+        .bubble-ai {
+            background: #fff;
+            border: 1px solid var(--line);
+            color: #344054;
+            border-radius: 18px 18px 18px 6px;
+            box-shadow: 0 6px 20px -16px rgba(16,24,40,.5);
+        }
+        .bubble-me .markdown-body strong { color: #fff; }
+        .bubble-me .markdown-body code { background: rgba(255,255,255,.2); color: #fff; }
+        .bubble-me .markdown-body a { color: #fff; text-decoration: underline; }
+        .bubble-ai .markdown-body strong { color: var(--brand); }
+
+        /* ---------- 输入区 ---------- */
+        .composer {
+            background: rgba(255,255,255,.92);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid var(--line);
+            box-shadow: none;
+        }
+        .composer-box {
+            background: #fff;
+            border: 1px solid var(--line-2);
+            border-radius: 16px;
+            padding: 5px 5px 5px 16px;
+            transition: border-color .2s, box-shadow .2s;
+        }
+        .composer-box:focus-within { border-color: #c9c0ff; box-shadow: 0 0 0 4px rgba(109,91,246,.10); }
+        #userInput { background: transparent; border: 0; box-shadow: none !important; }
+        .send-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 10px 16px; border-radius: 11px;
+            background: linear-gradient(135deg,#7c6bf7,#5a47e6);
+            color: #fff; font-size: 13px; font-weight: 600;
+            box-shadow: 0 10px 20px -12px rgba(90,71,230,.95);
+            transition: transform .15s, filter .2s;
+        }
+        .send-btn:hover { filter: brightness(1.05); transform: translateY(-1px); }
+        .send-btn:disabled { opacity: .6; transform: none; cursor: not-allowed; }
+
+        /* ---------- 工具页外壳 ---------- */
+        #toolPage { background: var(--bg); }
+        #toolPage > div:first-child {
+            background: rgba(255,255,255,.85);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--line);
+            box-shadow: none;
+        }
+        #toolBackBtn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 13px; border-radius: 10px;
+            border: 1px solid var(--line-2); background: #fff;
+            color: #475467; font-size: 13px; transition: all .18s;
+        }
+        #toolBackBtn:hover { border-color: #d3cbff; color: var(--brand); background: #f8f7ff; }
+        #toolPageBody {
+            background: radial-gradient(900px 300px at 50% -140px, rgba(109,91,246,.10), rgba(109,91,246,0) 70%), var(--bg);
+        }
+        #toolPageHint { display: none !important; }
+
+        .tp-wrap { max-width: 880px; margin: 0 auto; padding: 18px 22px 96px; }
+        .tp-hero-wrap { max-width: 880px; margin: 0 auto; padding: 34px 22px 0; }
+        .tp-hero { display: flex; align-items: center; gap: 14px; }
+        .tp-hero-ico {
+            width: 46px; height: 46px; border-radius: 14px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 18px;
+            background: linear-gradient(140deg, var(--c1), var(--c2));
+            box-shadow: 0 12px 24px -14px var(--c2), inset 0 1px 0 rgba(255,255,255,.35);
+        }
+        .tp-hero h1 { font-size: 19px; font-weight: 650; letter-spacing: -.02em; line-height: 1.35; color: var(--ink); }
+        .tp-hero p { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+
+        .tp-card {
+            background: #fff; border: 1px solid var(--line);
+            border-radius: 20px; padding: 22px;
+            box-shadow: var(--card-shadow);
+        }
+        .tp-card + .tp-card { margin-top: 16px; }
+
+        .tp-label {
+            display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em;
+            text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+        }
+        .tp-field {
+            width: 100%; border: 1px solid var(--line-2); background: #fbfbfe;
+            border-radius: 13px; padding: 12px 14px;
+            font-size: 13.5px; line-height: 1.75; color: var(--ink);
+            outline: none; resize: none;
+            transition: border-color .18s, box-shadow .18s, background .18s;
+        }
+        .tp-field::placeholder { color: #b3bcc9; }
+        .tp-field:focus { background: #fff; border-color: #c9c0ff; box-shadow: 0 0 0 4px rgba(109,91,246,.10); }
+
+        .tp-actions { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+        .btn-primary {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 10px 20px; border-radius: 11px;
+            font-size: 13px; font-weight: 600; color: #fff;
+            background: linear-gradient(135deg,#7c6bf7,#5a47e6);
+            box-shadow: 0 12px 24px -14px rgba(90,71,230,.95);
+            transition: transform .15s, filter .18s, box-shadow .18s;
+        }
+        .btn-primary:hover { filter: brightness(1.05); transform: translateY(-1px); box-shadow: 0 16px 28px -14px rgba(90,71,230,1); }
+        .btn-primary:active { transform: translateY(0); }
+        .btn-primary:disabled { opacity: .55; transform: none; cursor: not-allowed; }
+        .btn-ghost {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 9px 14px; border-radius: 11px; font-size: 12.5px;
+            color: #475467; background: #fff; border: 1px solid var(--line-2);
+            transition: all .18s;
+        }
+        .btn-ghost:hover { border-color: #d3cbff; color: var(--brand); background: #f9f8ff; }
+        .tp-hint { font-size: 12px; color: var(--muted); }
+
+        /* ---------- 上传区 ---------- */
+        .tp-drop {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; gap: 5px; padding: 34px 20px;
+            border: 1.5px dashed #d8dcec; border-radius: 16px; background: #fbfbfe;
+            cursor: pointer; transition: all .2s;
+        }
+        .tp-drop:hover, .tp-drop.is-over { border-color: #b9adff; background: #f8f6ff; }
+        .tp-drop-ico {
+            width: 46px; height: 46px; border-radius: 14px; margin-bottom: 5px;
+            background: #f2efff; color: var(--brand);
+            display: flex; align-items: center; justify-content: center; font-size: 18px;
+        }
+        .tp-drop-t { font-size: 13.5px; font-weight: 600; color: #344054; }
+        .tp-drop-s { font-size: 12px; color: var(--muted); line-height: 1.6; }
+        .tp-drop-name { font-size: 12px; font-weight: 600; color: var(--brand); margin-top: 3px; }
+        .tp-file-chip {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 9px 14px; border-radius: 11px;
+            border: 1px solid var(--line-2); background: #fff;
+            font-size: 12.5px; color: #475467; cursor: pointer; transition: all .18s;
+        }
+        .tp-file-chip:hover { border-color: #d3cbff; color: var(--brand); background: #f9f8ff; }
+
+        /* ---------- 结果区 ---------- */
+        .tp-result {
+            margin-top: 18px; padding-top: 18px; border-top: 1px dashed var(--line-2);
+            font-size: 13.5px; line-height: 1.85; color: #344054;
+        }
+        .tp-result.tp-pre { white-space: pre-wrap; }
+        .tp-result:empty::before, .tp-result.is-empty::before {
+            content: attr(data-empty);
+            display: flex; align-items: center; justify-content: center;
+            border: 1.5px dashed #e4e8f1; border-radius: 14px; background: #fafbfd;
+            padding: 28px 16px; font-size: 12.5px; color: #b6bfcc;
+            margin-top: 18px;
+        }
+        .tp-result .md-strong { color: var(--brand); }
+
+        /* ---------- 加载 / 错误 ---------- */
+        .tp-loading { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 13px; padding: 6px 0; }
+        .tp-spinner {
+            width: 15px; height: 15px; border-radius: 999px;
+            border: 2px solid #e7e4ff; border-top-color: var(--brand);
+            animation: tp-spin .7s linear infinite;
+        }
+        @keyframes tp-spin { to { transform: rotate(360deg); } }
+        .tp-err { color: #d92d20; }
+
+        /* ---------- 组件 ---------- */
+        .tp-seg { display: inline-flex; gap: 2px; padding: 3px; background: #f3f4f9; border-radius: 999px; }
+        .tp-seg button { padding: 7px 14px; font-size: 12.5px; color: #667085; border-radius: 999px; transition: all .18s; }
+        .tp-seg button:hover { color: var(--brand); }
+        .tp-seg button.on { background: #fff; color: var(--brand); font-weight: 600; box-shadow: 0 1px 4px rgba(16,24,40,.10); }
+
+        .tp-select {
+            appearance: none;
+            padding: 9px 32px 9px 13px; border-radius: 11px;
+            border: 1px solid var(--line-2); background: #fff;
+            font-size: 12.5px; color: #475467; outline: none; transition: all .18s;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%2398a2b3' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+            background-repeat: no-repeat;
+            background-position: right 11px center;
+        }
+        .tp-select:focus { border-color: #c9c0ff; box-shadow: 0 0 0 4px rgba(109,91,246,.10); }
+
+        .tp-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+        .tp-chip { padding: 6px 12px; font-size: 12px; border-radius: 999px; background: #f4f5fa; color: #5b6472; transition: all .18s; }
+        .tp-chip:hover { background: var(--brand-soft); color: var(--brand); }
+
+        .tp-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+        @media (max-width: 900px) { .tp-grid-3 { grid-template-columns: 1fr; } }
+        .tp-slot { border: 1px solid var(--line); border-radius: 14px; padding: 8px 10px 10px; background: #fcfcfe; }
+        .tp-slot-n { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .12em; color: #a8b0bd; margin: 2px 0 6px 4px; }
+
+        .tp-preview {
+            margin-top: 16px; min-height: 62vh;
+            border: 1px solid var(--line); border-radius: 14px; background: #fff;
+            overflow: hidden; display: flex; align-items: center; justify-content: center;
+            color: var(--muted); font-size: 12.5px;
+        }
+
+        /* ---------- 工具箱 ---------- */
+        #toolboxModal .glass-panel { border-radius: 22px; }
+        .tb-item {
+            display: flex; align-items: center; gap: 11px; text-align: left;
+            padding: 11px 12px; border: 1px solid var(--line); border-radius: 14px;
+            background: #fff; transition: all .18s;
+        }
+        .tb-item:hover { border-color: #d8d0ff; background: #faf9ff; transform: translateY(-1px); box-shadow: 0 10px 22px -18px rgba(90,71,230,.9); }
+        .tb-ico {
+            width: 34px; height: 34px; border-radius: 11px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 14px;
+            background: linear-gradient(140deg, var(--c1), var(--c2));
+        }
+        .tb-txt b { display: block; font-size: 12.5px; font-weight: 600; color: #344054; line-height: 1.3; }
+        .tb-txt em { display: block; font-style: normal; font-size: 11px; color: var(--muted); margin-top: 2px; }
+        .tb-item { position: relative; }
+        .tb-badge {
+            position: absolute; top: -7px; right: 10px;
+            font-size: 10px; font-weight: 600; line-height: 1;
+            padding: 3.5px 8px; border-radius: 999px; letter-spacing: .02em;
+            background: linear-gradient(135deg, #7c5cf0, #5b45e0);
+            color: #fff; box-shadow: 0 4px 10px -4px rgba(91,69,224,.6);
+        }
+        .tb-badge.is-hot { background: linear-gradient(135deg, #f97316, #ea580c); box-shadow: 0 4px 10px -4px rgba(234,88,12,.55); }
+        .tp-badge.is-rec { background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 10px -4px rgba(5,150,105,.5); }
+        .tp-term-link {
+            display: flex; align-items: center; gap: 8px;
+            padding: 9px 11px; margin-bottom: 6px; border-radius: 11px;
+            background: #f8f9fc; border: 1px solid var(--line);
+            font-size: 12px; font-weight: 600; color: #475467;
+            text-decoration: none; transition: all .18s;
+        }
+        .tp-term-link:hover { background: #f1efff; border-color: #d8d0ff; color: var(--brand); transform: translateX(2px); }
+        .tp-term-link i { font-size: 10px; color: var(--muted); }
+        .tp-term-link:hover i { color: var(--brand); }
+        .tp-term-link span { display: block; font-size: 10.5px; font-weight: 400; color: var(--muted); margin-top: 1px; }
+        /* 术语速查 */
+        .tp-term-search {
+            display: flex; align-items: center; gap: 10px;
+            padding: 4px 6px 4px 15px; border-radius: 14px;
+            border: 1px solid var(--line-2); background: #fbfbfe;
+            transition: border-color .18s, box-shadow .18s, background .18s;
+        }
+        .tp-term-search:focus-within { background: #fff; border-color: var(--brand); box-shadow: 0 0 0 4px rgba(109,91,246,.10); }
+        .tp-term-search > i { color: #b6bdc9; font-size: 13px; }
+        .tp-term-search input {
+            flex: 1; min-width: 0; border: 0; outline: none; background: transparent;
+            font-size: 14px; padding: 11px 0; color: #1f2937;
+        }
+        .tp-term-search input::placeholder { color: #b6bdc9; }
+        .tp-term-search button { flex-shrink: 0; padding: 9px 18px; border-radius: 11px; }
+        .tp-term-trow {
+            padding: 12px 14px; border-radius: 13px; background: #fff;
+            border: 1px solid var(--line); margin-bottom: 8px;
+            transition: border-color .16s, box-shadow .18s, transform .16s;
+        }
+        .tp-term-trow:hover { border-color: #d8d0ff; box-shadow: 0 10px 24px -20px rgba(90,71,230,.9); transform: translateY(-1px); }
+        .tp-term-pair { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+        .tp-term-cn { font-size: 14px; font-weight: 600; color: #1f2937; }
+        .tp-term-arrow { color: #cbd2dd; font-size: 11px; }
+        .tp-term-en { font-size: 13px; color: var(--brand); font-weight: 500; }
+        .tp-term-meta { margin-top: 6px; font-size: 11px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 10px; }
+        .tp-term-meta b { font-weight: 500; color: #6b7280; }
+        .tp-term-std { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; background: #f3f4f9; padding: 1px 6px; border-radius: 5px; color: #5b6472; }
+
+        /* ---------- 弹窗与隐私面板 ---------- */
         .glass-panel { border-radius: 18px; }
-        /* 隐私面板放进工具页时隐藏"关闭"按钮与模态内间距 */
         #toolPageBody #privacyClose { display: none; }
-        #toolPageBody .glass-panel { box-shadow: none; background: #fff; }
+        #toolPageBody .glass-panel { box-shadow: none; background: #fff; border-radius: 20px; }
+
+        /* ---------- 文献检索页 ---------- */
+        .tp-search {
+            background: #fff; border: 1px solid var(--line); border-radius: 24px;
+            padding: 46px 40px 30px; text-align: center; box-shadow: var(--card-shadow);
+        }
+        @media (max-width: 640px) { .tp-search { padding: 30px 20px 22px; } }
+        .tp-search-h { font-size: 24px; font-weight: 650; letter-spacing: -.025em; color: var(--ink); }
+        .tp-search-p { font-size: 13px; color: var(--muted); margin-top: 8px; }
+        .tp-searchbar {
+            display: flex; align-items: center; gap: 10px;
+            margin-top: 26px; padding: 7px 7px 7px 18px;
+            background: #f8f9fc; border: 1.5px solid #e6e9f0; border-radius: 999px;
+            transition: all .2s;
+        }
+        .tp-searchbar:focus-within { background: #fff; border-color: #c9c0ff; box-shadow: 0 0 0 5px rgba(109,91,246,.09); }
+        .tp-searchbar > i { color: #a8b0bd; font-size: 14px; }
+        .tp-searchbar input {
+            flex: 1; min-width: 0; background: transparent; border: 0; outline: none;
+            font-size: 14px; padding: 10px 0; color: var(--ink);
+        }
+        .tp-searchbar input::placeholder { color: #b3bcc9; }
+        .tp-searchbar button {
+            flex-shrink: 0; padding: 11px 24px; border-radius: 999px;
+            background: linear-gradient(135deg,#7c6bf7,#5a47e6); color: #fff;
+            font-size: 13.5px; font-weight: 600;
+            box-shadow: 0 10px 22px -12px rgba(90,71,230,.9);
+            transition: all .18s;
+        }
+        .tp-searchbar button:hover { filter: brightness(1.05); }
+        .tp-searchbar button:disabled { opacity: .6; cursor: not-allowed; }
+        .tp-search-meta {
+            display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+            gap: 8px; margin-top: 22px; font-size: 11.5px; color: #b0b8c4;
+        }
+        .tp-chips-label { font-size: 12px; color: var(--muted); padding: 6px 2px; }
+        .tp-cnki { margin-top: 18px; text-align: center; }
+        #tpLitOut { margin-top: 18px; }
+        #tpLitOut .group:hover { transform: translateY(-1px); }
+
+        /* ---------- 工具页充实化：主内容 + 侧栏 ---------- */
+        .tp-cols { display: grid; grid-template-columns: minmax(0, 1fr) 268px; gap: 16px; align-items: start; }
+        @media (max-width: 1020px) { .tp-cols { grid-template-columns: 1fr; } }
+        .tp-main { position: relative; overflow: hidden; }
+        .tp-main::before {
+            content: ''; position: absolute; top: -150px; right: -90px;
+            width: 340px; height: 340px; border-radius: 999px;
+            background: radial-gradient(circle, var(--c2, #7c3aed) 0%, transparent 65%);
+            opacity: .05; pointer-events: none;
+        }
+        .tp-hero-wrap { position: relative; }
+        .tp-hero-wrap::before {
+            content: ''; position: absolute; left: -60px; top: -60px;
+            width: 300px; height: 240px;
+            background: radial-gradient(closest-side, var(--c2, #7c3aed) 0%, transparent 70%);
+            opacity: .06; pointer-events: none;
+        }
+        .tp-hero-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+        .tp-hchip {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3.5px 10px; font-size: 11px; font-weight: 500;
+            color: #475467; background: #fff; border: 1px solid var(--line-2); border-radius: 999px;
+        }
+        .tp-hchip i { font-size: 9px; color: var(--c2, var(--brand)); }
+        .tp-aside { position: sticky; top: 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+        @media (max-width: 1020px) { .tp-aside { position: static; } }
+        .tp-aside-card { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 16px; box-shadow: var(--card-shadow); }
+        .tp-aside-h {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 12px; font-weight: 700; color: #344054;
+            margin-bottom: 12px; letter-spacing: .02em;
+        }
+        .tp-aside-h > i {
+            width: 26px; height: 26px; border-radius: 9px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; color: #fff;
+            background: linear-gradient(140deg, var(--c1, #a78bfa), var(--c2, #7c3aed));
+        }
+        ol.tp-steps { list-style: none; margin: 0; padding: 0; }
+        .tp-steps li {
+            display: flex; gap: 10px; font-size: 12.5px; color: #475467;
+            line-height: 1.6; position: relative; padding-bottom: 14px;
+        }
+        .tp-steps li:last-child { padding-bottom: 0; }
+        .tp-steps .n {
+            width: 20px; height: 20px; border-radius: 999px; flex-shrink: 0; margin-top: 1px;
+            background: var(--brand-soft); color: var(--brand);
+            font-size: 11px; font-weight: 700;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .tp-steps li:not(:last-child)::before {
+            content: ''; position: absolute; left: 9.25px; top: 24px; bottom: 4px;
+            width: 1.5px; background: #edeff5;
+        }
+        .tp-tip {
+            font-size: 12px; color: #667085; line-height: 1.7;
+            background: #f8f9fd; border: 1px solid #eef0f6; border-radius: 12px; padding: 10px 12px;
+        }
+        .tp-tip + .tp-tip { margin-top: 8px; }
+        .tp-tip i { color: var(--brand); margin-right: 5px; }
+        .tp-aside .tp-chips { margin-top: 0; }
+        .tp-aside .tp-chip { background: #f7f8fb; border: 1px solid #eef0f6; }
+        .tp-db-chip {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 5px 10px; font-size: 11.5px; color: #5b6472;
+            background: #fff; border: 1px solid var(--line-2); border-radius: 999px;
+        }
+        .tp-db-chip i { font-size: 9px; color: #3b82f6; }
+        .tp-feature-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+        @media (max-width: 700px) { .tp-feature-row { grid-template-columns: 1fr; } }
+        .tp-feature { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+        .tp-feature > i {
+            width: 30px; height: 30px; border-radius: 10px; margin-bottom: 10px;
+            background: #f2efff; color: var(--brand);
+            display: flex; align-items: center; justify-content: center; font-size: 12px;
+        }
+        .tp-feature b { display: block; font-size: 13px; font-weight: 600; color: #344054; }
+        .tp-feature span { display: block; font-size: 11.5px; color: #7c8698; margin-top: 2px; line-height: 1.6; }
     </style>
 </head>
 <body class="text-slate-800 h-screen flex flex-col overflow-hidden">
     <!-- 顶部 Header -->
-    <header class="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center shadow-sm z-20">
+    <header class="px-6 py-2.5 flex justify-between items-center z-20 shrink-0">
         <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center text-white text-xl shadow-md">
+            <div class="brand-mark w-10 h-10 flex items-center justify-center text-white text-lg">
                 <i class="fa-solid fa-brain"></i>
             </div>
             <div>
-                <h1 class="text-lg font-bold text-slate-800 leading-tight">智汇研途
-                    <span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full ml-1 align-middle">Beta</span>
+                <h1 class="text-[16px] font-semibold text-slate-900 leading-tight flex items-center gap-1.5">智汇研途
+                    <span class="text-[10px] font-medium bg-purple-50 text-purple-600 border border-purple-100 px-1.5 py-0.5 rounded-md">Beta</span>
                 </h1>
-                <p class="text-xs text-slate-500" data-i18n="subtitle">基于多智能体协作的科研辅助系统</p>
+                <p class="text-[11.5px] text-slate-400 mt-0.5" data-i18n="subtitle">基于多智能体协作的科研辅助系统</p>
             </div>
         </div>
-        <div class="flex items-center gap-3">
-            <button id="authBtn" class="text-xs bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-200 transition-colors">
+        <div class="flex items-center gap-2.5">
+            <button id="authBtn" class="text-xs bg-white border border-purple-100 text-purple-600 px-3 py-1.5 rounded-lg hover:bg-purple-50 transition-colors">
                 <i class="fa-solid fa-user mr-1"></i><span id="authLabel">登录 / 注册</span>
             </button>
-            <select id="uiLang" class="text-xs bg-slate-100 rounded-lg px-2 py-1.5 outline-none text-slate-600 border border-slate-200">
+            <select id="uiLang" class="text-[11.5px] bg-white rounded-lg px-2 py-1.5 outline-none text-slate-500 border border-slate-200/90">
                 <option value="zh">中文</option>
                 <option value="en">English</option>
                 <option value="ja">日本語</option>
@@ -197,11 +559,11 @@
                 <option value="ru">Русский</option>
                 <option value="ar">العربية</option>
             </select>
-            <div class="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full">
-                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span class="text-xs font-medium text-slate-600">DeepSeek-V4-Pro Ready</span>
+            <div class="flex items-center gap-2 bg-emerald-50/70 border border-emerald-100 px-3 py-1.5 rounded-full">
+                <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+                <span class="text-[11px] font-medium text-emerald-700">DeepSeek-V4-Pro Ready</span>
             </div>
-            <button id="settingsBtn" class="w-9 h-9 rounded-lg hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors" title="设置">
+            <button id="settingsBtn" class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors" title="设置">
                 <i class="fa-solid fa-gear"></i>
             </button>
         </div>
@@ -210,13 +572,13 @@
     <!-- 主内容区 -->
     <main class="flex-1 flex overflow-hidden">
         <!-- 左侧边栏 -->
-        <aside class="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0 hidden md:flex">
-            <div class="p-4 border-b border-slate-100 space-y-2">
-                <button id="newProjectBtn" class="w-full bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white py-2.5 rounded-lg font-medium transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-plus"></i> <span data-i18n="newProject">新建研究课题</span>
+        <aside class="w-64 border-r border-slate-200/80 flex flex-col shrink-0 hidden md:flex">
+            <div class="p-4 pb-3 space-y-2 border-b border-slate-100">
+                <button id="newProjectBtn" class="w-full active:scale-[0.985] text-white py-2.5 text-[13px] font-medium transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-plus text-xs"></i> <span data-i18n="newProject">新建研究课题</span>
                 </button>
-                <button id="toolboxBtn" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-toolbox"></i> <span data-i18n="toolbox">工具箱</span>
+                <button id="toolboxBtn" class="w-full bg-white border hover:bg-slate-50 text-slate-600 py-2.5 text-[13px] font-medium transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-toolbox text-xs text-slate-400"></i> <span data-i18n="toolbox">工具箱</span>
                 </button>
                 <input type="file" id="pdfInput" accept=".pdf" class="hidden">
                 <input type="file" id="readerInput" accept=".pdf" class="hidden">
@@ -233,10 +595,10 @@
         </aside>
 
         <!-- 主工作区 -->
-        <section class="flex-1 flex flex-col bg-slate-50 min-w-0">
-            <div class="px-6 pt-5 pb-3 flex justify-between items-center">
+        <section class="flex-1 flex flex-col min-w-0">
+            <div class="px-6 pt-5 pb-2 flex justify-between items-center">
                 <div>
-                    <h2 id="currentProjectTitle" class="text-lg font-bold text-slate-800">暂无课题</h2>
+                    <h2 id="currentProjectTitle" class="text-[15px] font-semibold text-slate-800 tracking-tight">暂无课题</h2>
                     <div id="projectTags" class="flex gap-2 mt-1" style="display:none">
                         <span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">RAG增强</span>
                         <span class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded">多智能体协作</span>
@@ -248,20 +610,22 @@
             </div>
 
             <!-- 聊天消息区 -->
-            <div id="chatContainer" class="flex-1 overflow-y-auto px-6 py-6 space-y-4 bg-gradient-to-b from-slate-50/60 to-white"></div>
+            <div id="chatContainer" class="flex-1 overflow-y-auto px-6 py-7 space-y-5"></div>
 
             <!-- 输入区 -->
-            <div class="p-4 bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(15,23,42,0.04)]">
-                <div class="max-w-4xl mx-auto flex items-end gap-3">
-                    <textarea id="userInput" rows="1"
-                        placeholder="输入你的研究问题，例如：帮我总结一下 Transformer 架构在 NLP 领域的最新进展..." data-i18n-placeholder="inputPlaceholder"
-                        class="flex-1 px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none resize-none text-sm"></textarea>
-                    <button id="sendBtn" class="px-5 py-3 bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white rounded-xl font-medium transition-all shadow-md flex items-center gap-2 shrink-0">
-                        <i class="fa-solid fa-paper-plane"></i> <span data-i18n="send">发送</span>
-                    </button>
+            <div class="px-4 pt-3 pb-4 composer">
+                <div class="max-w-3xl mx-auto">
+                    <div class="composer-box flex items-end gap-2">
+                        <textarea id="userInput" rows="1"
+                            placeholder="输入你的研究问题，例如：帮我总结一下 Transformer 架构在 NLP 领域的最新进展..." data-i18n-placeholder="inputPlaceholder"
+                            class="flex-1 py-2.5 text-[13.5px] leading-6 outline-none resize-none max-h-40"></textarea>
+                        <button id="sendBtn" class="send-btn shrink-0">
+                            <span data-i18n="send">发送</span><i class="fa-solid fa-arrow-up text-[11px]"></i>
+                        </button>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-2 px-1" data-i18n="hint">Enter 发送 · Shift+Enter 换行 · 内容由 AI 生成，请核实关键结论</p>
+                    <p class="text-[10px] text-slate-300 mt-1 px-1 leading-snug">本工具仅用于学术研究辅助。文献版权归原作者所有，相似度结果仅供参考，不构成侵权判定依据，请勿用于商业分发。</p>
                 </div>
-                <p class="max-w-4xl mx-auto text-xs text-slate-400 mt-2" data-i18n="hint">Enter 发送 · Shift+Enter 换行 · 内容由 AI 生成，请核实关键结论</p>
-                <p class="max-w-4xl mx-auto text-[10px] text-slate-400 mt-1 leading-snug">本工具仅用于学术研究辅助。文献版权归原作者所有，相似度结果仅供参考，不构成侵权判定依据，请勿用于商业分发。</p>
             </div>
         </section>
 
@@ -328,12 +692,13 @@
 
     <!-- 工具独立页面（hash 路由：#/tool/<key>） -->
     <section id="toolPage" class="flex-1 hidden flex-col overflow-hidden bg-slate-50">
-        <div class="px-6 py-3 bg-white border-b border-slate-200/80 flex items-center gap-3 shrink-0 shadow-[0_1px_3px_rgba(15,23,42,0.04)]">
-            <button id="toolBackBtn" class="px-3 py-1.5 text-sm border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 text-slate-600 transition-all flex items-center gap-1.5">
-                <i class="fa-solid fa-arrow-left text-xs"></i>返回
+        <div class="px-5 py-2.5 flex items-center gap-3 shrink-0">
+            <button id="toolBackBtn">
+                <i class="fa-solid fa-arrow-left text-[11px]"></i>返回
             </button>
+            <span class="text-[11px] text-slate-300">/</span>
+            <span class="text-[12px] font-medium text-slate-500">智汇研途 · 工具箱</span>
             <div id="toolTitleGroup" class="flex items-center gap-2 min-w-0" style="display:none">
-                <i class="fa-solid fa-toolbox text-purple-500 text-sm"></i>
                 <h2 id="toolPageTitle" class="text-base font-semibold text-slate-800 truncate"></h2>
                 <span id="toolPageHint" class="text-xs text-slate-400 truncate hidden sm:inline"></span>
             </div>
@@ -392,60 +757,75 @@
 
     <!-- 工具箱弹窗 -->
     <div id="toolboxModal" class="fixed inset-0 z-50 hidden items-center justify-center">
-        <div class="absolute inset-0 bg-slate-900/50"></div>
-        <div class="glass-panel relative w-full max-w-lg mx-4 p-6 rounded-2xl">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-toolbox mr-2 text-purple-600"></i>工具箱</h3>
-                <button id="closeToolboxBtn" class="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg" data-i18n="close">关闭</button>
+        <div class="absolute inset-0 bg-slate-900/40"></div>
+        <div class="glass-panel relative w-full max-w-2xl mx-4 p-6 max-h-[86vh] overflow-y-auto">
+            <div class="flex justify-between items-start mb-5">
+                <div>
+                    <h3 class="text-[17px] font-semibold text-slate-900">工具箱</h3>
+                    <p class="text-[12px] text-slate-400 mt-1">13 项能力 · 已按用户调研优先级排序</p>
+                </div>
+                <button id="closeToolboxBtn" class="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 flex items-center justify-center transition-colors" title="关闭">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
             </div>
-            <div id="toolboxGrid" class="grid grid-cols-3 gap-3">
-                <button id="litBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-magnifying-glass-chart text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700">全网文献检索</span>
+            <div id="toolboxGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button id="litBtn" class="tb-item" style="--c1:#60a5fa;--c2:#3b82f6">
+                    <span class="tb-badge is-hot">呼声最高</span>
+                    <span class="tb-ico"><i class="fa-solid fa-magnifying-glass-chart"></i></span>
+                    <span class="tb-txt"><b>全网文献检索</b><em>一个入口聚合 8 个学术库 · 附原文出处</em></span>
                 </button>
-                <button id="uploadBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-file-arrow-up text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700">导入文献 PDF</span>
+                <button id="compareBtn" class="tb-item" style="--c1:#34d399;--c2:#059669">
+                    <span class="tb-badge is-hot">呼声最高</span>
+                    <span class="tb-ico"><i class="fa-solid fa-table-columns"></i></span>
+                    <span class="tb-txt"><b>多篇对比阅读</b><em>多篇一键读 · 自动生成清晰对比表</em></span>
                 </button>
-                <button id="analyzeBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-magnifying-glass-plus text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700">文献解析</span>
+                <button id="surveyBtn" class="tb-item" style="--c1:#fbbf24;--c2:#d97706">
+                    <span class="tb-badge is-hot">呼声最高</span>
+                    <span class="tb-ico"><i class="fa-solid fa-book-open-reader"></i></span>
+                    <span class="tb-txt"><b>综述一键写</b><em>先出框架思路 · 基于已导入文献成文</em></span>
                 </button>
-                <button id="readerBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-file-pdf text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700">PDF 版式阅读</span>
+                <button id="viewpointBtn" class="tb-item" style="--c1:#f472b6;--c2:#db2777">
+                    <span class="tb-badge is-rec">调研推荐</span>
+                    <span class="tb-ico"><i class="fa-solid fa-lightbulb"></i></span>
+                    <span class="tb-txt"><b>观点梳理</b><em>各家观点 → 对比表格 / 论证大纲</em></span>
                 </button>
-                <button id="compareBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-table-columns text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700">多篇对比阅读</span>
+                <button id="translateBtn" class="tb-item" style="--c1:#818cf8;--c2:#4f46e5">
+                    <span class="tb-badge is-rec">调研推荐</span>
+                    <span class="tb-ico"><i class="fa-solid fa-language"></i></span>
+                    <span class="tb-txt"><b>学术翻译</b><em>存疑术语标红 · 针对外刊翻译痛点</em></span>
                 </button>
-                <button id="surveyBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-book-open-reader text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700">综述一键写</span>
+                <button id="termBtn" class="tb-item" style="--c1:#0ea5e9;--c2:#0369a1">
+                    <span class="tb-ico"><i class="fa-solid fa-book-bookmark"></i></span>
+                    <span class="tb-txt"><b>术语速查</b><em>国标审定译名 · 本地缓存秒回</em></span>
                 </button>
-                <button id="viewpointBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-list-check text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700">观点梳理</span>
+                <button id="polishBtn" class="tb-item" style="--c1:#c084fc;--c2:#9333ea">
+                    <span class="tb-badge is-rec">调研推荐</span>
+                    <span class="tb-ico"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                    <span class="tb-txt"><b>学术润色</b><em>纠错 + 术语规范化 + 修改点清单</em></span>
                 </button>
-                <button id="interpretBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-chart-line text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700">图表公式解读</span>
+                <button id="interpretBtn" class="tb-item" style="--c1:#22d3ee;--c2:#0891b2">
+                    <span class="tb-ico"><i class="fa-solid fa-chart-line"></i></span>
+                    <span class="tb-txt"><b>图表公式解读</b><em>按需咨询：先自己读，不懂再问</em></span>
                 </button>
-                <button id="translateBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-language text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700">学术翻译</span>
+                <button id="analyzeBtn" class="tb-item" style="--c1:#a78bfa;--c2:#7c3aed">
+                    <span class="tb-ico"><i class="fa-solid fa-magnifying-glass-plus"></i></span>
+                    <span class="tb-txt"><b>文献解析</b><em>问题 · 方法 · 结论 · 局限</em></span>
                 </button>
-                <button id="polishBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-spell-check text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700">学术润色</span>
+                <button id="uploadBtn" class="tb-item" style="--c1:#60a5fa;--c2:#2563eb">
+                    <span class="tb-ico"><i class="fa-solid fa-file-arrow-up"></i></span>
+                    <span class="tb-txt"><b>导入文献 PDF</b><em>文本直读 · 扫描件 OCR</em></span>
                 </button>
-                <button id="citeBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-quote-right text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700">引用管理</span>
+                <button id="readerBtn" class="tb-item" style="--c1:#fb7185;--c2:#e11d48">
+                    <span class="tb-ico"><i class="fa-solid fa-file-pdf"></i></span>
+                    <span class="tb-txt"><b>PDF 版式阅读</b><em>浏览器原生渲染 · 本地不外传</em></span>
                 </button>
-                <button id="privacyBtn" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-200 hover:bg-purple-50 hover:border-purple-300 transition-all">
-                    <i class="fa-solid fa-shield-halved text-purple-600 text-xl"></i>
-                    <span class="text-xs text-slate-700">隐私与数据</span>
+                <button id="citeBtn" class="tb-item" style="--c1:#94a3b8;--c2:#475569">
+                    <span class="tb-ico"><i class="fa-solid fa-quote-right"></i></span>
+                    <span class="tb-txt"><b>引用管理</b><em>DOI 核验 · 杜绝伪造文献</em></span>
+                </button>
+                <button id="privacyBtn" class="tb-item" style="--c1:#2dd4bf;--c2:#0d9488">
+                    <span class="tb-ico"><i class="fa-solid fa-shield-halved"></i></span>
+                    <span class="tb-txt"><b>隐私与数据</b><em>本地存储 · 不用于模型训练</em></span>
                 </button>
             </div>
             <!-- 已下线功能（代码保留，仅隐藏，避免影响其他模块） -->
@@ -460,7 +840,7 @@
                 <button id="arxivBtn"></button>
                 <button id="latexBtn"></button>
             </div>
-            <p class="text-xs text-slate-400 mt-4 text-center" data-i18n="toolsCount">共 11 项核心功能（按调研需求 F01~F10）</p>
+            <p class="text-[11px] text-slate-300 mt-5 text-center" data-i18n="toolsCount">功能优先级依据 2026.11 用户调研（Q8/Q9 勾选 + F01~F10 需求池）</p>
         </div>
     </div>
 
@@ -978,11 +1358,9 @@
             wrapper.className = 'flex gap-3 max-w-4xl mx-auto';
             const isUser = role === 'user';
             const avatar = isUser
-                ? '<div class="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 shrink-0"><i class="fa-solid fa-user"></i></div>'
-                : '<div class="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white shrink-0"><i class="fa-solid fa-robot"></i></div>';
-            const bubble = isUser
-                ? 'bg-purple-600 text-white rounded-2xl rounded-tr-none'
-                : 'bg-white border border-slate-200 text-slate-700 rounded-2xl rounded-tl-none shadow-sm';
+                ? '<div class="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 text-xs shrink-0"><i class="fa-solid fa-user"></i></div>'
+                : '<div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-xs shrink-0 shadow-sm"><i class="fa-solid fa-robot"></i></div>';
+            const bubble = isUser ? 'bubble-me' : 'bubble-ai';
             let sourcesHtml = '';
             if (!isUser && sources && sources.length) {
                 sourcesHtml = '<div class="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-500">参考来源：' +
@@ -1048,8 +1426,8 @@
             sendBtn.classList.toggle('opacity-50', disabled);
             sendBtn.classList.toggle('cursor-not-allowed', disabled);
             sendBtn.innerHTML = disabled
-                ? '<i class="fa-solid fa-spinner fa-spin"></i> 处理中'
-                : '<i class="fa-solid fa-paper-plane"></i> 发送';
+                ? '<i class="fa-solid fa-spinner fa-spin text-[11px]"></i> 处理中'
+                : '发送 <i class="fa-solid fa-arrow-up text-[11px]"></i>';
         }
 
         async function sendMessage() {
@@ -1688,7 +2066,7 @@
                 citationDist: "引用来源分布", upload: "上传文献", outline: "论文大纲", survey: "文献综述", graph: "引用图谱",
                 translate: "学术翻译", mlTranslate: "多语言翻译", polish: "学术润色", cite: "文献纠错",
                 csv: "CSV 图表", arxiv: "arXiv 检索", latex: "LaTeX 表格", reader: "PDF 阅读",
-                toolsCount: "共 14 项科研辅助工具", close: "关闭"
+                toolsCount: "功能优先级依据 2026.11 用户调研（Q8/Q9 勾选 + F01~F10 需求池）", close: "关闭"
             },
             en: {
                 subtitle: "Multi-Agent Research Assistant", newProject: "New Project", toolbox: "Toolbox",
@@ -3020,54 +3398,73 @@
             { slug: 'openaire', name: 'OpenAIRE', abbr: 'OpenAIRE' }
         ];
 
+        // 工具页统一加载态
+        const tpSpin = (label) => `<div class="tp-loading"><span class="tp-spinner"></span><span>${escapeHtml(label || '处理中…')}</span></div>`;
+
+        // 工具页侧栏组件
+        const tpSteps = (items) => `<div class="tp-aside-card"><div class="tp-aside-h"><i class="fa-solid fa-shoe-prints"></i>使用步骤</div><ol class="tp-steps">${items.map((t, i) => `<li><span class="n">${i + 1}</span><span>${t}</span></li>`).join('')}</ol></div>`;
+        const tpFacts = (items) => `<div class="tp-aside-card"><div class="tp-aside-h"><i class="fa-solid fa-star"></i>能力亮点</div><div class="tp-chips">${items.map(t => `<span class="tp-chip">${t}</span>`).join('')}</div></div>`;
+        const tpTips = (items) => `<div class="tp-aside-card"><div class="tp-aside-h"><i class="fa-solid fa-lightbulb"></i>小贴士</div>${items.map(t => `<div class="tp-tip"><i class="fa-solid fa-circle-info"></i>${t}</div>`).join('')}</div>`;
+        const tpHeroChips = (items) => `<div class="tp-hero-chips">${(items || []).map(t => `<span class="tp-hchip"><i class="fa-solid fa-check"></i>${t}</span>`).join('')}</div>`;
+
         const TOOL_DEFS = {
             lit: {
                 icon: 'fa-magnifying-glass', c1: '#60a5fa', c2: '#3b82f6', noHead: true,
-                title: '全网文献检索', hint: '8 个开放学术库并行',
+                title: '全网文献检索', hint: '一个入口聚合 8 个开放学术库，免除多平台反复横跳',
                 render: () => `
-                    <div class="max-w-4xl mx-auto px-6 pt-10 pb-16 no-card">
-                        <div class="bg-white rounded-3xl shadow-[0_10px_40px_rgba(0,0,0,0.08)] px-8 py-12 sm:px-16 text-center">
-                            <h1 class="text-3xl font-bold text-[#1f2d3d]">📚 全网文献检索</h1>
-                            <p class="text-sm text-[#8c98a4] mt-2 mb-10">聚合全球 8 个开放学术库，让知识触手可及</p>
+                    <div class="tp-wrap no-card" style="padding-top:34px">
+                        <div class="tp-search">
+                            <h1 class="tp-search-h">探索全球开放学术资源</h1>
+                            <p class="tp-search-p">一次检索，汇聚 8 个学术库的最新成果</p>
+                            <div class="tp-hero-chips justify-center" style="margin-top:14px">
+                                <span class="tp-hchip"><i class="fa-solid fa-check"></i>免登录</span>
+                                <span class="tp-hchip"><i class="fa-solid fa-check"></i>实时结果</span>
+                                <span class="tp-hchip"><i class="fa-solid fa-check"></i>真实溯源 · 杜绝伪造</span>
+                            </div>
 
-                            <div class="flex items-center bg-[#f8f9fb] border-2 border-[#e4e7ed] rounded-full pl-5 pr-1.5 py-1.5 transition-all focus-within:bg-white focus-within:border-[#7c3aed] focus-within:shadow-[0_0_0_4px_rgba(124,58,237,0.12)]">
-                                <i class="fa-solid fa-magnifying-glass text-[#a0aab5] mr-2"></i>
-                                <input id="tpLitQ" placeholder="请输入英文关键词，如: transformer" class="flex-1 min-w-0 bg-transparent border-none outline-none text-base py-3 text-[#333] placeholder:text-[#b0b8c1]">
-                                <button id="tpLitRun" class="shrink-0 bg-[#7c3aed] hover:bg-[#6d28d9] active:scale-[0.98] text-white rounded-full px-7 py-3 text-base font-medium transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2">
-                                    <i id="tpLitSpin" class="fa-solid fa-spinner fa-spin hidden"></i>
+                            <div class="tp-searchbar">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input id="tpLitQ" placeholder="输入英文关键词，如 transformer" autocomplete="off">
+                                <button id="tpLitRun">
+                                    <i id="tpLitSpin" class="fa-solid fa-spinner fa-spin hidden mr-1"></i>
                                     <span id="tpLitBtnText">检索</span>
                                 </button>
                             </div>
 
-                            <div class="flex flex-wrap justify-center items-center gap-2 mt-5 text-[13px] text-[#8c98a4]">
-                                <span>热门：</span>
-                                ${['Transformer', 'LLM', 'YOLOv8', 'AGI', 'RAG', 'diffusion model'].map(t => `<button class="lit-tag bg-[#f0f2f5] hover:bg-[#e1e5eb] hover:text-[#7c3aed] px-3 py-1 rounded-full transition-colors" data-q="${t}">${t}</button>`).join('')}
+                            <div class="tp-chips items-center justify-center">
+                                <span class="tp-chips-label">热门</span>
+                                ${['Transformer', 'LLM', 'YOLOv8', 'AGI', 'RAG', 'diffusion model'].map(t => `<button class="tp-chip lit-tag" data-q="${t}">${t}</button>`).join('')}
                             </div>
 
-                            <div class="flex items-center justify-center gap-2 mt-4 text-xs text-[#8c98a4]">
+                            <div class="tp-search-meta">
                                 <span>每库条数</span>
-                                <select id="tpLitLimit" class="text-xs border border-[#e4e7ed] rounded-full px-3 py-1 bg-white text-[#8c98a4] outline-none focus:border-[#7c3aed]">
+                                <select id="tpLitLimit" class="tp-select">
                                     <option value="10">10 条</option>
                                     <option value="20" selected>20 条</option>
                                     <option value="50">50 条</option>
-                                    <option value="100">100 条（最多）</option>
+                                    <option value="100">100 条</option>
                                 </select>
+                                <span class="opacity-40">·</span>
+                                <span>全部开放获取，无需登录</span>
                             </div>
+                            <div class="tp-chips justify-center" style="margin-top:10px">
+                                ${LIT_DBS.map(d => `<span class="tp-db-chip"><i class="fa-solid fa-database"></i>${d.name}</span>`).join('')}
+                            </div>
+                        </div>
 
-                            <div class="mt-10 text-xs text-[#a0aab5] leading-relaxed">
-                                支持并行检索：OpenAlex / arXiv / Europe PMC / DOAJ / Zenodo / Crossref / OpenAIRE / PubMed
-                            </div>
+                        <div class="tp-feature-row">
+                            <div class="tp-feature"><i class="fa-solid fa-bolt"></i><b>8 库并行</b><span>一个入口聚合，不再多平台横跳</span></div>
+                            <div class="tp-feature"><i class="fa-solid fa-shield-halved"></i><b>真实溯源</b><span>每条结果附原文出处，点击可查证</span></div>
+                            <div class="tp-feature"><i class="fa-solid fa-lock-open"></i><b>开放获取</b><span>免费开放学术库，无需账号</span></div>
+                        </div>
 
-                            <div class="mt-6 flex flex-col items-center gap-2">
-                                <button id="tpCnkiBtn" class="flex items-center gap-2 px-4 py-2 bg-white border border-amber-200 rounded-full text-sm text-amber-700 hover:bg-amber-50 hover:border-amber-300 transition-colors">
-                                    <i class="fa-solid fa-lock text-xs"></i>
-                                    知网 CNKI
-                                    <span class="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full">付费库</span>
-                                </button>
-                                <p class="text-[11px] text-[#a0aab5] text-center leading-relaxed">
-                                    知网为付费数据库，需会员或机构授权。本软件<b>不会</b>代您登录或抓取，仅在您同意后跳转官网。
-                                </p>
-                            </div>
+                        <div class="tp-cnki">
+                            <button id="tpCnkiBtn" class="tp-chip inline-flex items-center gap-2" style="background:#fffbeb;color:#b45309;border:1px solid #fde68a">
+                                <i class="fa-solid fa-lock text-[10px]"></i>
+                                知网 CNKI
+                                <span class="text-[10px] px-1.5 py-0.5 bg-amber-100 rounded-full">付费库</span>
+                            </button>
+                            <p class="text-[11px] text-slate-400 mt-2 leading-relaxed">知网为付费数据库，本软件不会代您登录或抓取，仅在授权后跳转官网</p>
                         </div>
 
                         <div id="tpCnkiModal" class="hidden fixed inset-0 z-[80] items-center justify-center">
@@ -3085,14 +3482,14 @@
                                     记住我的选择，以后不再询问
                                 </label>
                                 <div class="flex gap-2">
-                                    <button id="tpCnkiYes" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-sm">同意并打开知网</button>
-                                    <button id="tpCnkiNo" class="flex-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-600 py-2 rounded-lg text-sm">取消</button>
+                                    <button id="tpCnkiYes" class="btn-primary flex-1 justify-center">同意并打开知网</button>
+                                    <button id="tpCnkiNo" class="btn-ghost flex-1 justify-center">取消</button>
                                 </div>
                             </div>
                         </div>
 
-                        <div id="tpLitProgress" class="mt-8 hidden grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
-                        <div data-empty="结果会显示在这里" id="tpLitOut" class="mt-6"></div>
+                        <div id="tpLitProgress" class="mt-5 hidden grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+                        <div data-empty="检索结果会显示在这里" id="tpLitOut" class="mt-2"></div>
                     </div>`,
                 bind: () => {
                     const qEl = document.getElementById('tpLitQ');
@@ -3135,8 +3532,8 @@
                         _record('search', `文献检索：${q}`);
 
                         progEl.classList.remove('hidden');
-                        progEl.innerHTML = LIT_DBS.map(d => `<div id="prog-${d.slug}" class="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white border border-slate-100 text-[11px] text-slate-500">
-                            <span class="prog-dot w-2 h-2 rounded-full bg-slate-300 shrink-0"></span>
+                        progEl.innerHTML = LIT_DBS.map(d => `<div id="prog-${d.slug}" class="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-100 shadow-[0_1px_2px_rgba(16,24,40,0.03)] text-[11px] text-slate-500">
+                            <span class="prog-dot w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0"></span>
                             <span class="flex-1 truncate">${d.name}</span>
                             <span class="prog-text text-slate-400">等待</span>
                         </div>`).join('');
@@ -3178,28 +3575,29 @@
                         spin.classList.add('hidden');
 
                         const total = okList.reduce((n, x) => n + (x.items || []).length, 0);
-                        let html = `<div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600 mb-3">
-                            <span>共 <b class="text-purple-600">${total}</b> 条</span>
-                            <span>成功 <b>${okList.length}</b> / ${LIT_DBS.length} 个库</span>
-                            <span>总耗时 <b class="text-purple-600">${(totalMs / 1000).toFixed(2)} 秒</b></span>
-                            ${fastest ? `<span class="text-xs text-slate-400">最快 ${fastest.db.name} ${(fastest.ms / 1000).toFixed(2)}s</span>` : ''}
-                            ${slowest && slowest !== fastest ? `<span class="text-xs text-slate-400">最慢 ${slowest.db.name} ${(slowest.ms / 1000).toFixed(2)}s</span>` : ''}
+                        let html = `<div class="flex flex-wrap items-center gap-2 text-[12.5px] mb-4">
+                            <span class="px-3 py-1 rounded-full bg-purple-50 text-purple-700 font-medium">共 ${total} 条</span>
+                            <span class="px-3 py-1 rounded-full bg-slate-50 text-slate-500">成功 ${okList.length} / ${LIT_DBS.length} 个库</span>
+                            <span class="px-3 py-1 rounded-full bg-slate-50 text-slate-500">耗时 ${(totalMs / 1000).toFixed(2)}s</span>
+                            ${fastest ? `<span class="text-[11.5px] text-slate-400">最快 ${fastest.db.name} ${(fastest.ms / 1000).toFixed(2)}s</span>` : ''}
+                            ${slowest && slowest !== fastest ? `<span class="text-[11.5px] text-slate-400">最慢 ${slowest.db.name} ${(slowest.ms / 1000).toFixed(2)}s</span>` : ''}
                         </div>`;
                         if (failList.length) {
-                            html += `<div class="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-100 text-xs text-amber-700">部分数据库检索失败（${failList.map(x => x.db.name).join('、')}），以下为成功结果。</div>`;
+                            html += `<div class="mb-4 px-3.5 py-2.5 rounded-xl bg-amber-50 border border-amber-100 text-[12px] text-amber-700">部分数据库检索失败（${failList.map(x => x.db.name).join('、')}），以下为成功结果。</div>`;
                         }
+                        html += `<div class="mb-4 flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-50 border border-emerald-100 text-[12px] text-emerald-700"><i class="fa-solid fa-shield-halved"></i>以下结果均来自真实开放学术库并附原文出处链接，可逐条点击查证——本系统不生成虚构文献。</div>`;
                         okList.forEach(x => {
                             if (!(x.items || []).length) return;
-                            html += `<div class="mb-5"><div class="text-xs font-semibold text-slate-500 mb-1.5">${x.db.name}</div>`;
+                            html += `<div class="mb-5"><div class="text-[11px] font-semibold tracking-[0.08em] uppercase text-slate-400 mb-2 px-0.5">${x.db.name}</div>`;
                             x.items.forEach(it => {
-                                html += `<div class="p-3 border border-slate-200 rounded-lg bg-white mb-1.5">
-                                    <div class="text-sm text-slate-800 leading-snug">${escapeHtml(it.title || '')}</div>
-                                    <div class="text-xs text-slate-400 mt-1">${escapeHtml(it.year || '')}${it.url ? ` · <a href="${it.url}" target="_blank" class="text-purple-600 underline">查看原文</a>` : ''}</div>
+                                html += `<div class="group p-3.5 border border-slate-200 rounded-xl bg-white mb-2 transition-all hover:border-purple-200 hover:shadow-[0_10px_24px_-20px_rgba(90,71,230,0.9)]">
+                                    <div class="text-[13px] text-slate-800 leading-relaxed">${escapeHtml(it.title || '')}</div>
+                                    <div class="text-[11.5px] text-slate-400 mt-1.5">${escapeHtml(it.year || '')}${it.url ? ` · <a href="${it.url}" target="_blank" class="text-purple-600 hover:underline"><i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i> 溯源 · 查看原文出处</a>` : ''}</div>
                                 </div>`;
                             });
                             html += '</div>';
                         });
-                        if (!okList.length) html += '<p class="text-sm text-slate-400">所有数据库均未返回结果，请稍后重试</p>';
+                        if (!okList.length) html += '<p class="text-[13px] text-slate-400 text-center py-10">所有数据库均未返回结果，请稍后重试</p>';
                         outEl.innerHTML = html;
                     };
 
@@ -3244,50 +3642,118 @@
             upload: {
                 icon: 'fa-file-arrow-up', c1: '#60a5fa', c2: '#3b82f6',
                 title: '导入文献 PDF', hint: '文本型 PDF 直读，扫描件自动 OCR',
+                tags: ['文本直读', '扫描件 OCR', '自动入库'],
                 render: () => `
-                    <div class="max-w-3xl mx-auto p-6">
-                    <input type="file" id="tpUpFile" accept=".pdf" class="block w-full text-sm text-slate-600 border border-slate-300 rounded-lg p-3 mb-3">
-                    <button id="tpUpRun" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">开始解析</button>
-                    <div data-empty="结果会显示在这里" id="tpUpOut" class="mt-4 text-sm text-slate-700 whitespace-pre-wrap"></div>
-                    </div>`,
+                    <div class="tp-wrap">
+                        <div class="tp-cols">
+                        <div class="tp-card tp-main">
+                            <label class="tp-drop" id="tpUpDrop">
+                                <input type="file" id="tpUpFile" accept=".pdf" style="display:none">
+                                <span class="tp-drop-ico"><i class="fa-regular fa-file-pdf"></i></span>
+                                <span class="tp-drop-t">拖拽 PDF 到此处，或点击选择文件</span>
+                                <span class="tp-drop-s">文本型 PDF 直读 · 扫描件自动 OCR · 解析后自动写入向量库</span>
+                                <span class="tp-drop-name" id="tpUpName"></span>
+                            </label>
+                            <div class="tp-actions">
+                                <button id="tpUpRun" class="btn-primary"><i class="fa-solid fa-bolt text-[11px]"></i>开始解析</button>
+                                <span class="tp-hint">建议单篇 50 页以内，解析约需 5~20 秒</span>
+                            </div>
+                            <div data-empty="解析结果会显示在这里" id="tpUpOut" class="tp-result"></div>
+                        </div>
+                        <aside class="tp-aside">
+                            ${tpSteps(['拖拽或点击选择 PDF 文件', '点击「开始解析」', '解析完成后到对话区直接提问'])}
+                            ${tpFacts(['文本型直读', '扫描件 OCR', '向量库入库', '片段级切分'])}
+                            ${tpTips(['解析后的片段会写入本地向量库，之后在对话区提问会自动引用原文。'])}
+                        </aside>
+                    </div>
+                </div>`,
                 bind: () => {
+                    const fileEl = document.getElementById('tpUpFile');
+                    const dropEl = document.getElementById('tpUpDrop');
+                    const nameEl = document.getElementById('tpUpName');
+                    const out = document.getElementById('tpUpOut');
+                    const showName = () => { nameEl.textContent = fileEl.files[0] ? fileEl.files[0].name : ''; };
+                    fileEl.addEventListener('change', showName);
+                    ['dragenter', 'dragover'].forEach(ev => dropEl.addEventListener(ev, e => {
+                        e.preventDefault(); dropEl.classList.add('is-over');
+                    }));
+                    ['dragleave', 'drop'].forEach(ev => dropEl.addEventListener(ev, e => {
+                        e.preventDefault(); dropEl.classList.remove('is-over');
+                    }));
+                    dropEl.addEventListener('drop', e => {
+                        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+                            fileEl.files = e.dataTransfer.files;
+                            showName();
+                        }
+                    });
                     document.getElementById('tpUpRun').onclick = async () => {
-                        const f = document.getElementById('tpUpFile').files[0];
-                        const out = document.getElementById('tpUpOut');
-                        if (!f) { out.textContent = '请先选择 PDF 文件'; return; }
-                        out.textContent = '解析中…';
+                        const f = fileEl.files[0];
+                        if (!f) { out.innerHTML = '<span class="tp-err">请先选择 PDF 文件</span>'; return; }
+                        out.innerHTML = tpSpin('正在解析 PDF…');
                         const fd = new FormData();
                         fd.append('file', f);
                         try {
                             const r = await fetch(`${_api()}/api/upload`, { method: 'POST', body: fd });
                             const d = await r.json();
-                            out.textContent = r.ok ? `已解析：${d.pages || '?'} 页，切分 ${d.chunks || '?'} 个片段` : ('失败：' + (d.detail || ''));
-                        } catch (e) { out.textContent = '失败：' + e.message; }
+                            out.innerHTML = r.ok
+                                ? `<div class="flex items-center gap-3">
+                                       <span class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center"><i class="fa-solid fa-check"></i></span>
+                                       <div>
+                                           <div class="text-[13.5px] font-semibold text-slate-800">解析完成</div>
+                                           <div class="text-[12px] text-slate-500 mt-0.5">${d.pages || '?'} 页 · 切分 ${d.chunks || '?'} 个片段，已写入向量库</div>
+                                       </div>
+                                   </div>`
+                                : `<span class="tp-err">失败：${escapeHtml(d.detail || '')}</span>`;
+                        } catch (e) {
+                            out.innerHTML = `<span class="tp-err">失败：${escapeHtml(e.message)}</span>`;
+                        }
                     };
                 }
             },
             analyze: {
                 icon: 'fa-magnifying-glass-plus', c1: '#a78bfa', c2: '#7c3aed',
                 title: '文献解析', hint: '结构化精读：问题 · 方法 · 数据 · 结论 · 创新 · 局限',
+                tags: ['六维结构化', 'RAG 增强', '原文可追溯'],
                 render: () => `
-                    <div class="max-w-4xl mx-auto p-6">
-                        <div class="flex flex-wrap items-center gap-2 mb-3">
-                            <input type="file" id="tpAnFile" accept=".pdf,.txt" class="text-xs text-slate-600 border border-slate-300 rounded-lg p-2">
-                            <button id="tpAnExtract" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg hover:bg-slate-50">提取 PDF 文本</button>
-                            <span id="tpAnFileInfo" class="text-xs text-slate-400"></span>
+                    <div class="tp-wrap">
+                        <div class="tp-cols">
+                        <div class="tp-card tp-main">
+                            <div class="flex flex-wrap items-center gap-2.5 mb-4">
+                                <label class="tp-file-chip">
+                                    <i class="fa-regular fa-file-pdf text-purple-500"></i>
+                                    <span>选择 PDF / TXT</span>
+                                    <input type="file" id="tpAnFile" accept=".pdf,.txt" style="display:none">
+                                </label>
+                                <button id="tpAnExtract" class="btn-ghost"><i class="fa-solid fa-text-slash text-[11px]"></i>提取 PDF 文本</button>
+                                <span id="tpAnFileInfo" class="tp-hint"></span>
+                            </div>
+                            <label class="tp-label">文献内容</label>
+                            <textarea id="tpAnText" rows="11" placeholder="粘贴文献正文或摘要，或先用上方按钮从 PDF 提取文本…" class="tp-field"></textarea>
+                            <div class="tp-actions">
+                                <button id="tpAnRun" class="btn-primary"><i class="fa-solid fa-wand-magic-sparkles text-[11px]"></i>开始解析</button>
+                                <span class="tp-hint">至少 20 字，解析结果按六个维度结构化输出</span>
+                            </div>
+                            <div data-empty="解析结果会显示在这里" id="tpAnOut" class="tp-result"></div>
                         </div>
-                        <textarea id="tpAnText" rows="10" placeholder="粘贴文献正文或摘要…" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-3 outline-none resize-none"></textarea>
-                        <button id="tpAnRun" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">开始解析</button>
-                        <div data-empty="结果会显示在这里" id="tpAnOut" class="mt-4 text-sm text-slate-700 leading-relaxed"></div>
-                    </div>`,
+                        <aside class="tp-aside">
+                            ${tpSteps(['用左侧按钮提取 PDF 文本，或直接粘贴', '点击「开始解析」', '按六个维度阅读结构化结果'])}
+                            ${tpFacts(['研究问题', '研究方法', '数据集', '核心结论', '创新点', '局限性'])}
+                            ${tpTips(['文本越长解析越准，建议至少包含摘要与方法部分。'])}
+                        </aside>
+                    </div>
+                </div>`,
                 bind: () => {
                     const ta = document.getElementById('tpAnText');
                     const info = document.getElementById('tpAnFileInfo');
                     const out = document.getElementById('tpAnOut');
+                    const fileEl = document.getElementById('tpAnFile');
+                    fileEl.addEventListener('change', () => {
+                        info.textContent = fileEl.files[0] ? fileEl.files[0].name : '';
+                    });
                     document.getElementById('tpAnExtract').onclick = async () => {
-                        const f = document.getElementById('tpAnFile').files[0];
+                        const f = fileEl.files[0];
                         if (!f) { info.textContent = '请先选择文件'; return; }
-                        info.textContent = '提取中…';
+                        info.innerHTML = '提取中…';
                         const fd = new FormData();
                         fd.append('file', f);
                         try {
@@ -3300,8 +3766,8 @@
                     };
                     document.getElementById('tpAnRun').onclick = async () => {
                         const text = (ta.value || '').trim();
-                        if (text.length < 20) { out.innerHTML = '<p class="text-amber-600">请至少输入 20 个字</p>'; return; }
-                        out.innerHTML = '<p class="text-slate-400">解析中…</p>';
+                        if (text.length < 20) { out.innerHTML = '<span class="tp-err">请至少输入 20 个字</span>'; return; }
+                        out.innerHTML = tpSpin('正在解析文献结构…');
                         try {
                             const r = await fetch(`${_api()}/api/analyze-paper`, {
                                 method: 'POST',
@@ -3309,157 +3775,299 @@
                                 body: JSON.stringify({ text })
                             });
                             const d = await r.json();
-                            if (!r.ok) { out.innerHTML = `<p class="text-red-500">失败：${escapeHtml(d.detail || '')}</p>`; return; }
+                            if (!r.ok) { out.innerHTML = `<span class="tp-err">失败：${escapeHtml(d.detail || '')}</span>`; return; }
                             out.innerHTML = renderMarkdown(d.analysis || '');
                             _record('query', '文献解析', (d.analysis || '').slice(0, 200), '');
-                        } catch (e) { out.innerHTML = `<p class="text-red-500">失败：${escapeHtml(e.message)}</p>`; }
+                        } catch (e) { out.innerHTML = `<span class="tp-err">失败：${escapeHtml(e.message)}</span>`; }
                     };
                 }
             },
             reader: {
                 icon: 'fa-file-pdf', c1: '#fb7185', c2: '#e11d48',
                 title: 'PDF 版式阅读', hint: '浏览器原生渲染，保留原始排版',
+                tags: ['原生排版', '本地渲染', '不联网'],
                 render: () => `
-                    <div class="h-full flex flex-col p-6">
-                    <input type="file" id="tpRdFile" accept=".pdf" class="block w-full text-sm text-slate-600 border border-slate-300 rounded-lg p-3 mb-3">
-                    <div id="tpRdBox" class="flex-1 min-h-[70vh] border border-slate-200 rounded-lg bg-white overflow-hidden flex items-center justify-center text-sm text-slate-400">选择 PDF 后在此预览</div>
-                    </div>`,
+                    <div class="tp-wrap">
+                        <div class="tp-cols">
+                        <div class="tp-card tp-main">
+                            <div class="flex flex-wrap items-center gap-2.5 mb-4">
+                                <label class="tp-file-chip">
+                                    <i class="fa-regular fa-file-pdf text-rose-500"></i>
+                                    <span>选择 PDF 文件</span>
+                                    <input type="file" id="tpRdFile" accept=".pdf" style="display:none">
+                                </label>
+                                <span id="tpRdName" class="tp-hint"></span>
+                            </div>
+                            <div id="tpRdBox" class="tp-preview">
+                                <div class="text-center">
+                                    <i class="fa-regular fa-file-pdf text-[26px] text-slate-200"></i>
+                                    <p class="mt-2.5">选择 PDF 后在此预览</p>
+                                </div>
+                            </div>
+                        </div>
+                        <aside class="tp-aside">
+                            ${tpSteps(['选择本地 PDF 文件', '在预览区阅读原始排版', '配合「文献解析」深入精读'])}
+                            ${tpFacts(['原生排版', '本地渲染', '零上传'])}
+                            ${tpTips(['文件仅在本机浏览器打开，不会上传到任何服务器。'])}
+                        </aside>
+                    </div>
+                </div>`,
                 bind: () => {
-                    document.getElementById('tpRdFile').onchange = (e) => {
+                    const fileEl = document.getElementById('tpRdFile');
+                    fileEl.onchange = (e) => {
                         const f = e.target.files[0];
                         const box = document.getElementById('tpRdBox');
+                        const nm = document.getElementById('tpRdName');
                         if (!f) return;
-                        box.innerHTML = `<iframe src="${URL.createObjectURL(f)}" class="w-full h-full min-h-[70vh]" style="border:0"></iframe>`;
+                        if (nm) nm.textContent = f.name;
+                        box.innerHTML = `<iframe src="${URL.createObjectURL(f)}" class="w-full h-full min-h-[62vh]" style="border:0"></iframe>`;
                     };
                 }
             },
             compare: {
                 icon: 'fa-table-columns', c1: '#34d399', c2: '#059669',
-                title: '多篇对比阅读', hint: '2~5 篇文献自动生成对比表',
+                title: '多篇对比阅读', hint: '多篇一键读：把几篇文献整合成一张清晰的对比表',
+                tags: ['调研呼声 Top', '自动制表', '差异聚焦', '支持 2~5 篇'],
                 render: () => `
-                    <div class="max-w-4xl mx-auto p-6">
-                    <textarea id="tpCmp0" rows="3" placeholder="文献 1 摘要/内容…" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-2 outline-none resize-none"></textarea>
-                    <textarea id="tpCmp1" rows="3" placeholder="文献 2 摘要/内容…" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-2 outline-none resize-none"></textarea>
-                    <textarea id="tpCmp2" rows="3" placeholder="文献 3（可选）…" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-3 outline-none resize-none"></textarea>
-                    <button id="tpCmpRun" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">开始对比</button>
-                    <div data-empty="结果会显示在这里" id="tpCmpOut" class="mt-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed"></div>
-                    </div>`,
+                    <div class="tp-wrap">
+                        <div class="tp-cols">
+                        <div class="tp-card tp-main">
+                            <label class="tp-label">文献内容（至少 2 篇）</label>
+                            <div class="tp-grid-3">
+                                <div class="tp-slot">
+                                    <span class="tp-slot-n">文献 01</span>
+                                    <textarea id="tpCmp0" rows="7" placeholder="摘要 / 核心内容…" class="tp-field" style="background:#fff"></textarea>
+                                </div>
+                                <div class="tp-slot">
+                                    <span class="tp-slot-n">文献 02</span>
+                                    <textarea id="tpCmp1" rows="7" placeholder="摘要 / 核心内容…" class="tp-field" style="background:#fff"></textarea>
+                                </div>
+                                <div class="tp-slot">
+                                    <span class="tp-slot-n">文献 03 · 可选</span>
+                                    <textarea id="tpCmp2" rows="7" placeholder="摘要 / 核心内容…" class="tp-field" style="background:#fff"></textarea>
+                                </div>
+                            </div>
+                            <div class="tp-actions">
+                                <button id="tpCmpRun" class="btn-primary"><i class="fa-solid fa-code-compare text-[11px]"></i>开始对比</button>
+                                <span class="tp-hint">自动提取研究问题、方法、数据与结论的差异</span>
+                            </div>
+                            <div data-empty="对比表会显示在这里" id="tpCmpOut" class="tp-result tp-pre"></div>
+                        </div>
+                        <aside class="tp-aside">
+                            ${tpSteps(['粘贴至少 2 篇文献内容', '点击「开始对比」', '得到一张清晰的方法/结论对比表'])}
+                            ${tpFacts(['研究问题', '方法差异', '数据集', '结论对比', '适用场景'])}
+                            ${tpTips(['调研愿景：「技术图表能整合出来，对比出来出现一个清晰的表格」——本页即为此而设计。', '每篇建议 200 字以上，保留方法与结论段落效果最佳。'])}
+                        </aside>
+                    </div>
+                </div>`,
                 bind: () => {
                     document.getElementById('tpCmpRun').onclick = async () => {
                         const papers = ['tpCmp0', 'tpCmp1', 'tpCmp2'].map(i => document.getElementById(i).value.trim()).filter(Boolean);
                         const out = document.getElementById('tpCmpOut');
-                        if (papers.length < 2) { out.textContent = '至少填写 2 篇文献'; return; }
-                        out.textContent = '对比中…';
+                        if (papers.length < 2) { out.innerHTML = '<span class="tp-err">至少填写 2 篇文献</span>'; return; }
+                        out.innerHTML = tpSpin('正在生成对比表…');
                         try {
                             const r = await fetch(`${_api()}/api/compare-papers`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ papers }) });
                             const d = await r.json();
-                            out.textContent = r.ok ? d.table : ('失败：' + (d.detail || ''));
-                        } catch (e) { out.textContent = '失败：' + e.message; }
+                            out.innerHTML = r.ok ? escapeHtml(d.table || '') : `<span class="tp-err">失败：${escapeHtml(d.detail || '')}</span>`;
+                        } catch (e) { out.innerHTML = `<span class="tp-err">失败：${escapeHtml(e.message)}</span>`; }
                     };
                 }
             },
             survey: {
                 icon: 'fa-book-open-reader', c1: '#fbbf24', c2: '#d97706',
-                title: '综述一键写', hint: '基于已导入文献生成领域综述',
+                title: '综述一键写', hint: '先给思路与框架，再基于已导入文献成文',
+                tags: ['调研呼声 Top', '脉络梳理', '方法对比', '未来方向'],
                 render: () => `
-                    <div class="max-w-3xl mx-auto p-6">
-                    <input id="tpSvTopic" placeholder="如：大模型在医疗诊断中的应用" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-3 outline-none focus:ring-2 focus:ring-purple-500">
-                    <button id="tpSvRun" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">生成综述</button>
-                    <div data-empty="结果会显示在这里" id="tpSvOut" class="mt-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed"></div>
-                    </div>`,
+                    <div class="tp-wrap">
+                        <div class="tp-cols">
+                        <div class="tp-card tp-main">
+                            <label class="tp-label">研究主题</label>
+                            <input id="tpSvTopic" placeholder="如：大模型在医疗诊断中的应用" class="tp-field">
+                            <div class="tp-chips">
+                                ${['大模型在医疗诊断中的应用', '多模态检索增强生成', '联邦学习隐私保护', '图神经网络推荐系统'].map(t => `<button class="tp-chip tp-topic">${t}</button>`).join('')}
+                            </div>
+                            <div class="tp-actions">
+                                <button id="tpSvRun" class="btn-primary"><i class="fa-solid fa-pen-nib text-[11px]"></i>生成综述</button>
+                                <span class="tp-hint">自动梳理研究脉络、代表性方法与未来方向</span>
+                            </div>
+                            <div data-empty="综述正文会显示在这里" id="tpSvOut" class="tp-result tp-pre"></div>
+                        </div>
+                        <aside class="tp-aside">
+                            ${tpSteps(['输入研究主题，或点示例标签', '点击「生成综述」', '在结果区核对、修改并润色'])}
+                            ${tpFacts(['研究脉络', '代表性方法', '研究空白', '未来方向'])}
+                            ${tpTips(['调研愿景：「提供一种思路，大概有个框架」——本页先给框架与思路，你可以按需调整后再成文。', '建议先「导入文献 PDF」，综述将基于已导入文献生成，内容更可靠。'])}
+                        </aside>
+                    </div>
+                </div>`,
                 bind: () => {
+                    const topicEl = document.getElementById('tpSvTopic');
+                    document.querySelectorAll('.tp-topic').forEach(b => {
+                        b.onclick = () => { topicEl.value = b.textContent.trim(); topicEl.focus(); };
+                    });
                     document.getElementById('tpSvRun').onclick = async () => {
-                        const topic = document.getElementById('tpSvTopic').value.trim();
-                        if (!topic) return;
+                        const topic = topicEl.value.trim();
+                        if (!topic) { topicEl.focus(); return; }
                         const out = document.getElementById('tpSvOut');
-                        out.textContent = '生成中…';
+                        out.innerHTML = tpSpin('正在撰写综述…');
                         _record('query', `综述生成：${topic}`);
                         try {
                             const r = await fetch(`${_api()}/api/survey`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topic }) });
                             const d = await r.json();
-                            out.textContent = r.ok ? d.survey : ('失败：' + (d.detail || ''));
-                        } catch (e) { out.textContent = '失败：' + e.message; }
+                            out.innerHTML = r.ok ? escapeHtml(d.survey || '') : `<span class="tp-err">失败：${escapeHtml(d.detail || '')}</span>`;
+                        } catch (e) { out.innerHTML = `<span class="tp-err">失败：${escapeHtml(e.message)}</span>`; }
                     };
                 }
             },
             viewpoint: {
                 icon: 'fa-lightbulb', c1: '#f472b6', c2: '#db2777',
-                title: '观点梳理', hint: '提取各家观点，生成对比表与大纲',
+                title: '观点梳理', hint: '提取各家观点，生成比对表格与论证大纲',
+                tags: ['调研推荐', '立场提取', '观点对比', '论证大纲'],
                 render: () => `
-                    <div class="max-w-4xl mx-auto p-6">
-                    <textarea id="tpVpText" rows="10" placeholder="粘贴文本…" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-3 outline-none resize-none"></textarea>
-                    <button id="tpVpRun" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">梳理观点</button>
-                    <div data-empty="结果会显示在这里" id="tpVpOut" class="mt-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed"></div>
-                    </div>`,
+                    <div class="tp-wrap">
+                        <div class="tp-cols">
+                        <div class="tp-card tp-main">
+                            <label class="tp-label">待梳理文本</label>
+                            <textarea id="tpVpText" rows="11" placeholder="粘贴综述段落、多篇摘要或讨论部分…" class="tp-field"></textarea>
+                            <div class="tp-actions">
+                                <button id="tpVpRun" class="btn-primary"><i class="fa-solid fa-list-check text-[11px]"></i>梳理观点</button>
+                                <span class="tp-hint">输出观点对比表与论证大纲</span>
+                            </div>
+                            <div data-empty="梳理结果会显示在这里" id="tpVpOut" class="tp-result tp-pre"></div>
+                        </div>
+                        <aside class="tp-aside">
+                            ${tpSteps(['粘贴综述段落或多篇摘要', '点击「梳理观点」', '查看各家观点的比对表格与大纲'])}
+                            ${tpFacts(['立场提取', '观点对比表', '论证大纲', '分歧定位'])}
+                            ${tpTips(['调研原话：「把多篇文献里的各家观点提取出来，帮你做个比对的表格，或者列个大纲」——正是本页的功能。', '混合不同学派、不同作者的文本，梳理结果会更全面。'])}
+                        </aside>
+                    </div>
+                </div>`,
                 bind: () => {
                     document.getElementById('tpVpRun').onclick = async () => {
                         const text = document.getElementById('tpVpText').value.trim();
                         const out = document.getElementById('tpVpOut');
-                        if (text.length < 10) { out.textContent = '请输入至少 10 个字'; return; }
-                        out.textContent = '梳理中…';
+                        if (text.length < 10) { out.innerHTML = '<span class="tp-err">请输入至少 10 个字</span>'; return; }
+                        out.innerHTML = tpSpin('正在梳理观点…');
                         try {
                             const r = await fetch(`${_api()}/api/extract-viewpoints`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
                             const d = await r.json();
-                            out.textContent = r.ok ? d.result : ('失败：' + (d.detail || ''));
-                        } catch (e) { out.textContent = '失败：' + e.message; }
+                            out.innerHTML = r.ok ? escapeHtml(d.result || '') : `<span class="tp-err">失败：${escapeHtml(d.detail || '')}</span>`;
+                        } catch (e) { out.innerHTML = `<span class="tp-err">失败：${escapeHtml(e.message)}</span>`; }
                     };
                 }
             },
             interpret: {
                 icon: 'fa-chart-line', c1: '#22d3ee', c2: '#0891b2',
-                title: '图表公式解读', hint: '解读图表、公式、表格',
+                title: '图表公式解读', hint: '按需咨询式：先自己读，不懂的图表公式再来问',
+                tags: ['按需提问', '图表·公式·表格', '白话解读', '不替你下结论'],
                 render: () => `
-                    <div class="max-w-4xl mx-auto p-6">
-                    <select id="tpIntKind" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-2 outline-none">
-                        <option value="auto">自动识别</option><option value="figure">图表</option>
-                        <option value="formula">公式</option><option value="table">表格</option>
-                    </select>
-                    <textarea id="tpIntText" rows="8" placeholder="粘贴图表标题/图注/公式…" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-3 outline-none resize-none"></textarea>
-                    <button id="tpIntRun" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">开始解读</button>
-                    <div data-empty="结果会显示在这里" id="tpIntOut" class="mt-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed"></div>
-                    </div>`,
+                    <div class="tp-wrap">
+                        <div class="tp-cols">
+                        <div class="tp-card tp-main">
+                            <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
+                                <span class="tp-label" style="margin-bottom:0">内容类型</span>
+                                <div class="tp-seg" id="tpIntSeg">
+                                    <button data-v="auto" class="on">自动识别</button>
+                                    <button data-v="figure">图表</button>
+                                    <button data-v="formula">公式</button>
+                                    <button data-v="table">表格</button>
+                                </div>
+                            </div>
+                            <select id="tpIntKind" style="display:none">
+                                <option value="auto">自动识别</option><option value="figure">图表</option>
+                                <option value="formula">公式</option><option value="table">表格</option>
+                            </select>
+                            <label class="tp-label">内容</label>
+                            <textarea id="tpIntText" rows="9" placeholder="粘贴图表标题、图注、公式或表格内容…" class="tp-field"></textarea>
+                            <div class="tp-actions">
+                                <button id="tpIntRun" class="btn-primary"><i class="fa-solid fa-lightbulb text-[11px]"></i>开始解读</button>
+                                <span class="tp-hint">说明坐标轴含义、趋势与统计学要点</span>
+                            </div>
+                            <div data-empty="解读结果会显示在这里" id="tpIntOut" class="tp-result tp-pre"></div>
+                        </div>
+                        <aside class="tp-aside">
+                            ${tpSteps(['先自己通读文献，定位看不懂的图表 / 公式', '把标题、图注或公式粘贴进来', '按需提问，获得针对性解读'])}
+                            ${tpFacts(['折线·柱状·散点图', '数学公式', '数据表格', '统计显著性'])}
+                            ${tpTips(['调研中同学们的偏好是「自己先看一遍，不懂的地方再请教 AI」——本页因此设计为按需提问，而不是整篇自动解读。', '解读结果仅为参考，重要结论请回到原文图表核对。'])}
+                        </aside>
+                    </div>
+                </div>`,
                 bind: () => {
+                    const seg = document.getElementById('tpIntSeg');
+                    const sel = document.getElementById('tpIntKind');
+                    if (seg && sel) {
+                        seg.querySelectorAll('button').forEach(b => {
+                            b.onclick = () => {
+                                sel.value = b.dataset.v;
+                                seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+                            };
+                        });
+                    }
                     document.getElementById('tpIntRun').onclick = async () => {
                         const text = document.getElementById('tpIntText').value.trim();
-                        const kind = document.getElementById('tpIntKind').value;
+                        const kind = sel.value;
                         const out = document.getElementById('tpIntOut');
-                        if (text.length < 5) { out.textContent = '请输入内容'; return; }
-                        out.textContent = '解读中…';
+                        if (text.length < 5) { out.innerHTML = '<span class="tp-err">请输入内容</span>'; return; }
+                        out.innerHTML = tpSpin('正在解读…');
                         try {
                             const r = await fetch(`${_api()}/api/interpret`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, kind }) });
                             const d = await r.json();
-                            out.textContent = r.ok ? d.explanation : ('失败：' + (d.detail || ''));
-                        } catch (e) { out.textContent = '失败：' + e.message; }
+                            out.innerHTML = r.ok ? escapeHtml(d.explanation || '') : `<span class="tp-err">失败：${escapeHtml(d.detail || '')}</span>`;
+                        } catch (e) { out.innerHTML = `<span class="tp-err">失败：${escapeHtml(e.message)}</span>`; }
                     };
                 }
             },
             translate: {
                 icon: 'fa-language', c1: '#818cf8', c2: '#4f46e5',
-                title: '学术翻译', hint: '标准学术表达 + 不确定术语红色波浪线',
+                title: '学术翻译', hint: '只译不编：不确定术语一律标红，供你人工核对',
+                tags: ['调研推荐', '存疑标注', '术语规范', '降幻觉设计'],
                 render: () => `
-                    <div class="max-w-4xl mx-auto p-6">
-                    <div class="flex gap-2 mb-2">
-                        <select id="tpTrLang" class="px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none">
-                            <option value="en">英语</option><option value="zh">中文</option><option value="ja">日语</option>
-                            <option value="ko">韩语</option><option value="fr">法语</option><option value="de">德语</option>
-                            <option value="es">西班牙语</option><option value="ru">俄语</option>
-                        </select>
-                        <button id="tpTrRun" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">翻译</button>
+                    <div class="tp-wrap">
+                        <div class="tp-cols">
+                        <div class="tp-card tp-main">
+                            <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
+                                <div class="flex items-center gap-2">
+                                    <span class="tp-label" style="margin-bottom:0">目标语言</span>
+                                    <select id="tpTrLang" class="tp-select">
+                                        <option value="en">英语</option><option value="zh">中文</option><option value="ja">日语</option>
+                                        <option value="ko">韩语</option><option value="fr">法语</option><option value="de">德语</option>
+                                        <option value="es">西班牙语</option><option value="ru">俄语</option>
+                                    </select>
+                                </div>
+                                <button id="tpTrRun" class="btn-primary"><i class="fa-solid fa-language text-[11px]"></i>翻译</button>
+                            </div>
+                            <label class="tp-label">原文</label>
+                            <textarea id="tpTrText" rows="9" placeholder="粘贴要翻译的学术文本…" class="tp-field"></textarea>
+                            <div data-empty="译文会显示在这里" id="tpTrOut" class="tp-result"></div>
+                        </div>
+                        <aside class="tp-aside">
+                            ${tpSteps(['选择目标语言', '粘贴学术原文并翻译', '悬停红色波浪线，核对存疑术语'])}
+                            ${tpFacts(['标准学术表达', '术语规范化', '存疑术语标红', '缓存加速'])}
+                            <div class="tp-aside-card"><div class="tp-aside-h"><i class="fa-solid fa-book-bookmark"></i>权威术语速查</div>
+                                <button id="tpGoTerm" class="tp-term-link" style="width:100%;text-align:left;cursor:pointer">
+                                    <i class="fa-solid fa-bolt"></i>
+                                    <span style="flex:1">打开术语速查<span>国标审定译名 · 本地缓存秒回</span></span>
+                                    <i class="fa-solid fa-chevron-right" style="color:#cbd2dd"></i>
+                                </button>
+                                <a href="https://www.termonline.cn/" target="_blank" class="tp-term-link"><i class="fa-solid fa-arrow-up-right-from-square"></i>术语在线官网<span>站点较慢，建议用上面的加速版</span></a>
+                            </div>
+                            ${tpTips(['调研痛点：「外刊的翻译不准确、幻觉严重」——本页对没把握的术语一律标红波浪线提示，不假装确定，请以人工核对为准。'])}
+                        </aside>
                     </div>
-                    <textarea id="tpTrText" rows="8" placeholder="粘贴要翻译的学术文本…" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-3 outline-none resize-none"></textarea>
-                    <div data-empty="结果会显示在这里" id="tpTrOut" class="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed"></div>
-                    </div>`,
+                </div>`,
                 bind: () => {
+                    const goTerm = document.getElementById('tpGoTerm');
+                    if (goTerm) goTerm.onclick = () => { location.hash = '#/tool/term'; };
                     document.getElementById('tpTrRun').onclick = async () => {
                         const text = document.getElementById('tpTrText').value.trim();
                         const target = document.getElementById('tpTrLang').value;
                         const out = document.getElementById('tpTrOut');
-                        if (!text) { out.textContent = '请输入文本'; return; }
-                        out.textContent = '翻译中…';
+                        if (!text) { out.innerHTML = '<span class="tp-err">请输入文本</span>'; return; }
+                        out.innerHTML = tpSpin('正在翻译…');
                         try {
                             const r = await fetch(`${_api()}/api/translate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, target }) });
                             const d = await r.json();
-                            if (!r.ok) { out.textContent = '失败：' + (d.detail || ''); return; }
+                            if (!r.ok) { out.innerHTML = `<span class="tp-err">失败：${escapeHtml(d.detail || '')}</span>`; return; }
                             let shown = d.translated || '';
                             const pairs = (d.uncertain_pairs || []).filter(p => p && p.target);
                             if (pairs.length) {
@@ -3480,66 +4088,213 @@
                                 html += `<div class="mt-3 pt-2 border-t border-slate-200 text-xs text-slate-500">红色波浪线术语译法不确定，请人工核对：${d.uncertain_terms.join('、')}</div>`;
                             }
                             out.innerHTML = html;
-                        } catch (e) { out.textContent = '失败：' + e.message; }
+                        } catch (e) { out.innerHTML = `<span class="tp-err">失败：${escapeHtml(e.message)}</span>`; }
                     };
+                }
+            },
+            term: {
+                icon: 'fa-book-bookmark', c1: '#0ea5e9', c2: '#0369a1',
+                title: '术语速查', hint: '全国科技名词委权威译名 · 本地缓存毫秒级返回',
+                tags: ['国家标准术语', '中英双向', '缓存加速'],
+                render: () => `
+                    <div class="tp-wrap">
+                        <div class="tp-cols">
+                        <div class="tp-card tp-main">
+                            <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
+                                <label class="tp-label" style="margin-bottom:0">中 / 英文术语</label>
+                                <div class="tp-seg" id="tpTermSeg">
+                                    <button data-v="1" class="on">精确匹配</button>
+                                    <button data-v="0">模糊匹配</button>
+                                </div>
+                            </div>
+                            <div class="tp-term-search">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input id="tpTermQ" placeholder="如：人工智能、知识图谱、federated learning" autocomplete="off">
+                                <button id="tpTermRun" class="btn-primary"><i id="tpTermSpin" class="fa-solid fa-spinner fa-spin hidden"></i><span id="tpTermBtnText">查询</span></button>
+                            </div>
+                            <div class="tp-chips">
+                                <span class="tp-chips-label">热门</span>
+                                ${['人工智能', '知识图谱', '大语言模型', '图神经网络', 'federated learning', 'diffusion model'].map(t => `<button class="tp-chip tp-term-hot" data-q="${t}">${t}</button>`).join('')}
+                            </div>
+                            <div data-empty="输入术语后，这里会显示权威中英对照与出处" id="tpTermOut" class="tp-result"></div>
+                        </div>
+                        <aside class="tp-aside">
+                            ${tpSteps(['输入中文或英文术语', '选择精确 / 模糊匹配', '查看权威译名、学科与国标出处'])}
+                            ${tpFacts(['GB/T 标准号', '学科归属', '原文出处', '30 天缓存'])}
+                            ${tpTips(['数据取自「术语在线」（全国科学技术名词审定委员会）官方检索接口，属于国家标准与学科审定名词，比通用翻译更可靠。', '首次查询需 1~3 秒访问官方接口，之后同一术语命中本地缓存，毫秒级返回。'])}
+                        </aside>
+                    </div>
+                </div>`,
+                bind: () => {
+                    const qEl = document.getElementById('tpTermQ');
+                    const out = document.getElementById('tpTermOut');
+                    const runEl = document.getElementById('tpTermRun');
+                    const btnText = document.getElementById('tpTermBtnText');
+                    const spin = document.getElementById('tpTermSpin');
+                    const seg = document.getElementById('tpTermSeg');
+                    let exact = 1;
+
+                    if (seg) {
+                        seg.querySelectorAll('button').forEach(b => {
+                            b.onclick = () => {
+                                exact = b.dataset.v === '1' ? 1 : 0;
+                                seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+                            };
+                        });
+                    }
+                    document.querySelectorAll('.tp-term-hot').forEach(b => {
+                        b.onclick = () => { qEl.value = b.dataset.q; run(); };
+                    });
+
+                    const rowHtml = (it) => `<div class="tp-term-trow">
+                        <div class="tp-term-pair">
+                            <span class="tp-term-cn">${escapeHtml(it.cn || '—')}</span>
+                            <span class="tp-term-arrow"><i class="fa-solid fa-arrow-right-long"></i></span>
+                            <span class="tp-term-en">${escapeHtml(it.en || '—')}</span>
+                        </div>
+                        <div class="tp-term-meta">
+                            ${it.subject ? `<span><b>学科</b> ${escapeHtml(it.subject)}</span>` : ''}
+                            ${it.standard ? `<span class="tp-term-std">${escapeHtml(it.standard)}${it.code ? ' · ' + escapeHtml(it.code) : ''}</span>` : ''}
+                            ${it.standard_name ? `<span>${escapeHtml(it.standard_name)}</span>` : ''}
+                            ${it.url ? `<a href="${it.url}" target="_blank" class="text-purple-600 hover:underline ml-auto">出处 ↗</a>` : ''}
+                        </div>
+                    </div>`;
+
+                    const run = async () => {
+                        const q = (qEl.value || '').trim();
+                        if (!q) { qEl.focus(); return; }
+                        runEl.disabled = true;
+                        btnText.textContent = '查询中…';
+                        spin.classList.remove('hidden');
+                        out.innerHTML = tpSpin('正在检索权威术语库…');
+                        try {
+                            const r = await fetch(`${_api()}/api/term/lookup?q=${encodeURIComponent(q)}&exact=${exact}`);
+                            const d = await r.json();
+                            if (!r.ok) {
+                                out.innerHTML = `<span class="tp-err">${escapeHtml(d.detail || '查询失败')}</span>`;
+                                return;
+                            }
+                            const items = d.items || [];
+                            if (!items.length) {
+                                let html = `<p class="text-center text-[13px] text-slate-400 py-6">未找到「${escapeHtml(q)}」的审定术语</p>`;
+                                if ((d.suggestions || []).length) {
+                                    html += `<div class="tp-chips justify-center"><span class="tp-chips-label">相近词</span>${d.suggestions.map(s => `<button class="tp-chip tp-term-hot" data-q="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('')}</div>`;
+                                } else {
+                                    html += `<p class="text-center text-[12px] text-slate-400">可尝试切换为「模糊匹配」，或改用英文关键词</p>`;
+                                }
+                                out.innerHTML = html;
+                                document.querySelectorAll('#tpTermOut .tp-term-hot').forEach(b => {
+                                    b.onclick = () => { qEl.value = b.dataset.q; run(); };
+                                });
+                                return;
+                            }
+                            const badge = d.cached
+                                ? `<span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 text-[11.5px]"><i class="fa-solid fa-bolt text-[10px]"></i> 本地缓存 · 即查即得${d.age_days ? ` · ${d.age_days} 天前` : ''}</span>`
+                                : `<span class="px-2.5 py-1 rounded-full bg-slate-50 text-slate-500 text-[11.5px]">首次查询 ${(d.elapsed_ms || 0) / 1000 >= 1 ? ((d.elapsed_ms || 0) / 1000).toFixed(1) + 's' : (d.elapsed_ms || 0) + 'ms'}</span>`;
+                            let html = `<div class="flex flex-wrap items-center gap-2 mb-3.5">
+                                <span class="px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 text-[11.5px]">${items.length} 条审定名词</span>
+                                ${badge}
+                                <a href="${d.source_url || 'https://www.termonline.cn/'}" target="_blank" class="text-[11.5px] text-slate-400 hover:text-purple-600">来源：术语在线 ↗</a>
+                            </div>`;
+                            html += items.map(rowHtml).join('');
+                            out.innerHTML = html;
+                        } catch (e) {
+                            out.innerHTML = `<span class="tp-err">查询失败：${escapeHtml(e.message)}</span>`;
+                        } finally {
+                            runEl.disabled = false;
+                            btnText.textContent = '查询';
+                            spin.classList.add('hidden');
+                        }
+                    };
+                    runEl.onclick = run;
+                    qEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') run(); });
                 }
             },
             polish: {
                 icon: 'fa-wand-magic-sparkles', c1: '#c084fc', c2: '#9333ea',
                 title: '学术润色', hint: '纠错 + 术语规范化 + 修改点清单',
+                tags: ['调研推荐', '语法纠错', '术语规范化', '学术语气'],
                 render: () => `
-                    <div class="max-w-4xl mx-auto p-6">
-                    <textarea id="tpPlText" rows="8" placeholder="粘贴文本…" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-3 outline-none resize-none"></textarea>
-                    <button id="tpPlRun" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">开始润色</button>
-                    <div data-empty="结果会显示在这里" id="tpPlOut" class="mt-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed"></div>
-                    </div>`,
+                    <div class="tp-wrap">
+                        <div class="tp-cols">
+                        <div class="tp-card tp-main">
+                            <label class="tp-label">原文</label>
+                            <textarea id="tpPlText" rows="11" placeholder="粘贴需要润色的论文段落…" class="tp-field"></textarea>
+                            <div class="tp-actions">
+                                <button id="tpPlRun" class="btn-primary"><i class="fa-solid fa-wand-magic-sparkles text-[11px]"></i>开始润色</button>
+                                <span class="tp-hint">输出润色稿 + 修改点清单</span>
+                            </div>
+                            <div data-empty="润色结果会显示在这里" id="tpPlOut" class="tp-result tp-pre"></div>
+                        </div>
+                        <aside class="tp-aside">
+                            ${tpSteps(['粘贴论文段落', '点击「开始润色」', '对照修改点清单逐条确认'])}
+                            ${tpFacts(['语法纠错', '用词升级', '术语统一', '学术语气'])}
+                            ${tpTips(['每次润色 1~3 段效果最佳；专业术语请保留原文以便核对。'])}
+                        </aside>
+                    </div>
+                </div>`,
                 bind: () => {
                     document.getElementById('tpPlRun').onclick = async () => {
                         const text = document.getElementById('tpPlText').value.trim();
                         const out = document.getElementById('tpPlOut');
                         if (!text) { out.textContent = '请输入文本'; return; }
-                        out.textContent = '润色中…';
+                        out.innerHTML = tpSpin('正在润色…');
                         try {
                             const r = await fetch(`${_api()}/api/polish`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
                             const d = await r.json();
-                            out.textContent = r.ok ? d.polished : ('失败：' + (d.detail || ''));
-                        } catch (e) { out.textContent = '失败：' + e.message; }
+                            out.innerHTML = r.ok ? escapeHtml(d.polished || '') : `<span class="tp-err">失败：${escapeHtml(d.detail || '')}</span>`;
+                        } catch (e) { out.innerHTML = `<span class="tp-err">失败：${escapeHtml(e.message)}</span>`; }
                     };
                 }
             },
             cite: {
                 icon: 'fa-quote-right', c1: '#94a3b8', c2: '#475569',
-                title: '引用管理', hint: 'GB/T 7714 · APA · MLA · BibTeX',
+                title: '引用管理', hint: 'DOI 核验真实文献，杜绝 AI 编造的参考文献',
+                tags: ['四种格式', 'DOI 校验', '真实文献'],
                 render: () => `
-                    <div class="max-w-4xl mx-auto p-6">
-                    <input id="tpCiQ" placeholder="如：Attention Is All You Need, Vaswani, 2017" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-3 outline-none focus:ring-2 focus:ring-purple-500">
-                    <button id="tpCiRun" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">校验</button>
-                    <div data-empty="结果会显示在这里" id="tpCiOut" class="mt-4 space-y-2 text-sm text-slate-700"></div>
-                    </div>`,
+                    <div class="tp-wrap">
+                        <div class="tp-cols">
+                        <div class="tp-card tp-main">
+                            <label class="tp-label">待校验引用</label>
+                            <input id="tpCiQ" placeholder="如：Attention Is All You Need, Vaswani, 2017" class="tp-field">
+                            <div class="tp-actions">
+                                <button id="tpCiRun" class="btn-primary"><i class="fa-solid fa-circle-check text-[11px]"></i>校验</button>
+                                <span class="tp-hint">核对标题、作者、年份与 DOI 是否真实存在</span>
+                            </div>
+                            <div data-empty="校验结果会显示在这里" id="tpCiOut" class="tp-result space-y-2"></div>
+                        </div>
+                        <aside class="tp-aside">
+                            ${tpSteps(['粘贴一条待校验引用', '点击「校验」', '从候选中选择真实文献'])}
+                            ${tpFacts(['GB/T 7714', 'APA', 'MLA', 'BibTeX', 'DOI 核验'])}
+                            ${tpTips(['调研顾虑：担心「AI 胡说八道、伪造不存在的文献」——本页通过与真实文献库比对来核验，未匹配到的引用请谨慎使用。'])}
+                        </aside>
+                    </div>
+                </div>`,
                 bind: () => {
                     document.getElementById('tpCiRun').onclick = async () => {
                         const citation = document.getElementById('tpCiQ').value.trim();
                         const out = document.getElementById('tpCiOut');
                         if (!citation) return;
-                        out.innerHTML = '<p class="text-slate-400">校验中…</p>';
+                        out.innerHTML = tpSpin('正在校验引用…');
                         try {
                             const r = await fetch(`${_api()}/api/verify-citation`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ citation }) });
                             const d = await r.json();
-                            if (!r.ok) { out.innerHTML = `<p class="text-red-500">失败：${escapeHtml(d.detail || '')}</p>`; return; }
-                            if (!(d.candidates || []).length) { out.innerHTML = '<p class="text-slate-400">未找到匹配文献</p>'; return; }
-                            out.innerHTML = d.candidates.map(c => `<div class="p-3 border border-slate-200 rounded-lg bg-white">
-                                <div class="font-medium text-slate-800">${escapeHtml(c.title)}</div>
-                                <div class="text-xs text-slate-500 mt-1">${escapeHtml(c.authors || '')} · ${escapeHtml(c.year || '')}</div>
-                                <div class="text-xs text-slate-400">DOI: ${escapeHtml(c.doi || '')}</div>
+                            if (!r.ok) { out.innerHTML = `<span class="tp-err">失败：${escapeHtml(d.detail || '')}</span>`; return; }
+                            if (!(d.candidates || []).length) { out.innerHTML = '<p class="text-slate-400 text-center py-6">未找到匹配文献</p>'; return; }
+                            out.innerHTML = d.candidates.map(c => `<div class="p-3.5 border border-slate-200 rounded-xl bg-white">
+                                <div class="font-medium text-slate-800 text-[13px] leading-relaxed">${escapeHtml(c.title)}</div>
+                                <div class="text-[11.5px] text-slate-500 mt-1.5">${escapeHtml(c.authors || '')} · ${escapeHtml(c.year || '')}</div>
+                                <div class="text-[11px] text-slate-400 mt-0.5">DOI: ${escapeHtml(c.doi || '—')}</div>
                             </div>`).join('');
-                        } catch (e) { out.innerHTML = `<p class="text-red-500">失败：${escapeHtml(e.message)}</p>`; }
+                        } catch (e) { out.innerHTML = `<span class="tp-err">失败：${escapeHtml(e.message)}</span>`; }
                     };
                 }
             },
             privacy: {
                 icon: 'fa-shield-halved', c1: '#2dd4bf', c2: '#0d9488',
-                title: '隐私与数据', hint: '本地存储 · 加密归档 · 权限管理',
-                render: () => `<div class="max-w-3xl mx-auto p-6 no-card" id="tpPrivHost"></div>`,
+                title: '隐私与数据', hint: '本地存储 · 数据不用于训练 · 保护未发表的 idea 与实验数据',
+                tags: ['本地存储', 'AES-256', '零上传', '不用于训练'],
+                render: () => `<div class="tp-wrap" style="max-width:720px" id="tpPrivHost"></div>`,
                 bind: () => {
                     const host = document.getElementById('tpPrivHost');
                     const panel = document.querySelector('#privacyModal .glass-panel');
@@ -3583,16 +4338,22 @@
             document.getElementById('toolPageHint').textContent = def.hint || '';
             const body = document.getElementById('toolPageBody');
             body.innerHTML = '';
+            const c1 = def.c1 || '#a78bfa';
+            const c2 = def.c2 || '#7c3aed';
+            body.style.setProperty('--c1', c1);
+            body.style.setProperty('--c2', c2);
             let head = '';
             if (!def.noHead) {
-                const c1 = def.c1 || '#a78bfa';
-                const c2 = def.c2 || '#7c3aed';
-                head = `<div class="tool-head" style="background:radial-gradient(1200px 200px at 8% 0%, ${c2}1f, transparent 70%)">
-                    <div class="max-w-4xl mx-auto px-6 pt-8 pb-2 flex items-center gap-3">
-                        <div class="tool-icon w-12 h-12 rounded-2xl flex items-center justify-center text-white text-xl" style="background:linear-gradient(135deg, ${c1}, ${c2})">
+                head = `<div class="tp-hero-wrap">
+                    <div class="tp-hero">
+                        <div class="tp-hero-ico">
                             <i class="fa-solid ${def.icon || 'fa-toolbox'}"></i>
                         </div>
-                        <h1 class="text-xl font-bold text-slate-800">${def.title || ''}</h1>
+                        <div class="min-w-0">
+                            <h1>${def.title || ''}</h1>
+                            <p>${def.hint || ''}</p>
+                            ${tpHeroChips(def.tags)}
+                        </div>
                     </div>
                 </div>`;
             }
@@ -3617,7 +4378,7 @@
             const map = {
                 litBtn: 'lit', uploadBtn: 'upload', analyzeBtn: 'analyze', readerBtn: 'reader', compareBtn: 'compare',
                 surveyBtn: 'survey', viewpointBtn: 'viewpoint', interpretBtn: 'interpret',
-                translateBtn: 'translate', polishBtn: 'polish', citeBtn: 'cite', privacyBtn: 'privacy'
+                translateBtn: 'translate', termBtn: 'term', polishBtn: 'polish', citeBtn: 'cite', privacyBtn: 'privacy'
             };
             const key = map[btn.id];
             if (!key) return;

@@ -286,6 +286,13 @@ def _init_user_db():
         "url TEXT, "
         "created_at TEXT NOT NULL)"
     )
+    # 术语速查本地缓存（术语在线官方接口，重复查询毫秒级返回）
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS term_cache ("
+        "q TEXT PRIMARY KEY, "
+        "payload TEXT NOT NULL, "
+        "created_at INTEGER NOT NULL)"
+    )
     conn.commit()
     conn.close()
 
@@ -943,6 +950,150 @@ def translate_batch(req: BatchTranslateRequest):
         pass
     # 解析失败时返回原文，保证界面不崩
     return BatchTranslateResponse(translations=req.texts, model=result["model"])
+
+
+# ==================== 术语速查（术语在线官方接口 + 本地缓存加速） ====================
+# 数据源：全国科学技术名词审定委员会「术语在线」公开检索接口
+# 说明：网页端为 4MB 单页应用，弱网下需等待 100 秒以上；此处直接取数据接口并落本地缓存，
+#       首次查询 1~3 秒，命中缓存为毫秒级。
+_TERM_API = "https://api.termonline.cn/main-serve/business/tm/tmWord/standardSearch"
+_TERM_TIPS_API = "https://api.termonline.cn/main-serve/business/tm/tmWord/tips"
+_TERM_TTL = 60 * 60 * 24 * 30  # 缓存 30 天
+_TERM_HEADERS = {
+    "Referer": "https://www.termonline.cn/",
+    "Origin": "https://www.termonline.cn",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+}
+
+
+def _term_rows_from_payload(payload: dict) -> list:
+    """把术语在线原始响应整理成前端易用的条目列表。"""
+    std = ((payload or {}).get("result") or {}).get("standardVO") or {}
+    items = []
+    for w in (std.get("tmWordList") or []):
+        if not isinstance(w, dict):
+            continue
+        cn = str(w.get("cnName") or "").strip()
+        en = str(w.get("enName") or "").strip()
+        if not cn and not en:
+            continue
+        items.append({
+            "cn": cn,
+            "en": en,
+            "subject": str(w.get("subjectName") or "").strip(),
+            "standard": str(w.get("standardCode") or "").strip(),
+            "standard_name": str(w.get("standardName") or "").strip(),
+            "code": str(w.get("termCode") or "").strip(),
+            "id": str(w.get("id") or "").strip(),
+            "url": ("https://www.termonline.cn/termDetail?id=" + str(w.get("id")))
+                   if w.get("id") else "https://www.termonline.cn/",
+        })
+    return items
+
+
+@app.get("/api/term/lookup")
+def term_lookup(q: str = "", exact: int = 1, limit: int = 8, refresh: int = 0):
+    """术语速查：优先读本地缓存，未命中再请求术语在线官方接口并写缓存。"""
+    term = (q or "").strip()
+    if not term:
+        raise HTTPException(status_code=400, detail="请输入要查询的术语")
+    if len(term) > 80:
+        term = term[:80]
+    key = term.lower()
+    lim = max(1, min(int(limit or 8), 20))
+    now = int(time.time())
+
+    # 1) 命中缓存（未过期且未要求刷新）
+    if not refresh:
+        conn = sqlite3.connect(_DB_PATH)
+        try:
+            row = conn.execute("SELECT payload, created_at FROM term_cache WHERE q=?", (key,)).fetchone()
+        finally:
+            conn.close()
+        if row and now - int(row[1]) < _TERM_TTL:
+            try:
+                data = json.loads(row[0])
+                data["cached"] = True
+                data["elapsed_ms"] = 0
+                data["age_days"] = max(0, (now - int(row[1])) // 86400)
+                return data
+            except Exception:
+                pass
+
+    # 2) 请求官方接口
+    t0 = time.time()
+    payload = None
+    err = ""
+    try:
+        r = requests.get(
+            _TERM_API,
+            params={"term": term, "match": 1 if exact else 2, "pageNo": 1, "pageSize": lim},
+            headers=_TERM_HEADERS,
+            timeout=15,
+        )
+        js = r.json()
+        if js.get("success"):
+            payload = js
+        else:
+            err = str(js.get("message") or "接口返回异常")
+    except Exception as e:
+        err = f"网络请求失败：{e.__class__.__name__}"
+
+    if payload is None:
+        # 网络失败：若有旧缓存则降级返回，保证可用
+        conn = sqlite3.connect(_DB_PATH)
+        try:
+            row = conn.execute("SELECT payload, created_at FROM term_cache WHERE q=?", (key,)).fetchone()
+        finally:
+            conn.close()
+        if row:
+            data = json.loads(row[0])
+            data.update({"cached": True, "stale": True, "elapsed_ms": 0,
+                         "age_days": max(0, (now - int(row[1])) // 86400)})
+            return data
+        raise HTTPException(status_code=502, detail=err or "术语在线接口暂不可用，请稍后重试")
+
+    items = _term_rows_from_payload(payload)
+    std = ((payload.get("result") or {}).get("standardVO") or {})
+    data = {
+        "ok": True,
+        "query": term,
+        "items": items,
+        "total": int(std.get("totalRecords") or len(items)),
+        "cached": False,
+        "elapsed_ms": int((time.time() - t0) * 1000),
+        "source": "术语在线 · 全国科学技术名词审定委员会",
+        "source_url": "https://www.termonline.cn/search?searchText=" + requests.utils.quote(term),
+    }
+
+    # 3) 写缓存（结果为空也缓存，避免反复打空查询）
+    try:
+        conn = sqlite3.connect(_DB_PATH)
+        try:
+            conn.execute(
+                "INSERT INTO term_cache (q, payload, created_at) VALUES (?, ?, ?) "
+                "ON CONFLICT(q) DO UPDATE SET payload=excluded.payload, created_at=excluded.created_at",
+                (key, json.dumps(data, ensure_ascii=False), now),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception:
+        pass
+
+    # 4) 无结果时给出相近词建议（提升可用性）
+    if not items:
+        try:
+            t = requests.get(_TERM_TIPS_API, params={"term": term}, headers=_TERM_HEADERS, timeout=8).json()
+            tips = [str(x.get("cnName")) for x in ((t.get("result") or {}).get("wordEsVos") or [])
+                    if isinstance(x, dict) and x.get("cnName")]
+            if tips:
+                data["suggestions"] = tips[:6]
+        except Exception:
+            pass
+
+    return data
 
 
 # ==================== CSV 数据可视化（模块六） ====================
