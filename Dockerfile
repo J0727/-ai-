@@ -1,6 +1,9 @@
 # 智汇研途 · 科研文献辅助平台
 # 单容器镜像：FastAPI 后端 + 前端静态文件（x86_64 / ARM64 均可构建）
-FROM python:3.11-slim
+# Docker Hub 拉不动时改用镜像站：
+#   docker compose build --build-arg BASE_IMAGE=docker.m.daocloud.io/library/python:3.11-slim
+ARG BASE_IMAGE=python:3.11-slim
+FROM ${BASE_IMAGE}
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

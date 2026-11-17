@@ -6,6 +6,8 @@ services:
         # 国内网络把这里改成镜像源，构建会快很多：
         # https://pypi.tuna.tsinghua.edu.cn/simple
         PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
+        # Docker Hub 拉不动时改用镜像站基础镜像
+        BASE_IMAGE: ${BASE_IMAGE:-python:3.11-slim}
     image: zhihui-yantu:2.0
     container_name: zhihui-yantu
     restart: unless-stopped
