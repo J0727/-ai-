@@ -20,6 +20,21 @@ die()  { printf '\033[1;31m[error]\033[0m %s\n' "$*" >&2; exit 1; }
 
 [[ $EUID -eq 0 ]] || die "请用 root 执行：sudo bash deploy.sh"
 
+# ---------------------------------------------------------------- 0. swap
+# 2G 内存构建 chromadb（要现场编译 C++ 扩展）容易 OOM，这里自动补 2G 交换分区
+MEM_MB="$(free -m | awk '/^Mem:/{print $2}')"
+if [[ ! -f /swapfile ]] && [[ "${MEM_MB:-0}" -lt 3500 ]]; then
+  log "内存 ${MEM_MB}MB，创建 2G 交换分区（防止构建时 OOM）"
+  if fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 status=none; then
+    chmod 600 /swapfile
+    mkswap /swapfile >/dev/null && swapon /swapfile || warn "swap 启用失败，继续尝试构建"
+    grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+    free -h | sed 's/^/    /'
+  else
+    warn "swap 创建失败，继续"
+  fi
+fi
+
 # ---------------------------------------------------------------- 1. Docker
 if command -v docker >/dev/null 2>&1; then
   log "已检测到 Docker：$(docker --version)"
@@ -67,12 +82,18 @@ fi
 # ---------------------------------------------------------------- 2. 代码
 if [[ -d "$APP_DIR/.git" ]]; then
   log "更新代码：$APP_DIR"
-  git -C "$APP_DIR" fetch --depth=1 origin main
-  git -C "$APP_DIR" reset --hard origin/main
+  git -C "$APP_DIR" fetch --depth=1 origin main \
+    || git -C "$APP_DIR" fetch --depth=1 "https://gh-proxy.com/$REPO_URL" main
+  git -C "$APP_DIR" reset --hard FETCH_HEAD
 else
   log "拉取代码到：$APP_DIR"
   mkdir -p "$(dirname "$APP_DIR")"
-  git clone --depth=1 "$REPO_URL" "$APP_DIR"
+  if ! git clone --depth=1 "$REPO_URL" "$APP_DIR" 2>/dev/null; then
+    warn "直连 GitHub 失败，改用镜像重试"
+    rm -rf "$APP_DIR"
+    git clone --depth=1 "https://gh-proxy.com/$REPO_URL" "$APP_DIR" \
+      || die "拉取代码失败：请手动执行 git clone $REPO_URL $APP_DIR"
+  fi
 fi
 cd "$APP_DIR"
 
