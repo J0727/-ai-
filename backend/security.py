@@ -46,6 +46,13 @@ import requests
 _SECRET = (os.getenv("ZHIHUI_SESSION_SECRET") or "").strip() or secrets.token_hex(32)
 _SESSION_TTL = int(os.getenv("ZHIHUI_SESSION_TTL", "86400"))
 _MAX_BODY = int(os.getenv("ZHIHUI_MAX_BODY", str(256 * 1024)))
+
+# 文件上传路由：体积由各自处理器校验（≤20 MiB），不套用 JSON 请求体上限。
+_UPLOAD_PATHS = ("/api/upload", "/api/v2/upload", "/api/extract-text")
+
+
+def _is_upload_path(path: str) -> bool:
+    return any(path == p or path.startswith(p + "/") for p in _UPLOAD_PATHS)
 _HTTP_TIMEOUT = float(os.getenv("ZHIHUI_UPSTREAM_TIMEOUT", "12"))
 _MAX_RESPONSE = int(os.getenv("ZHIHUI_UPSTREAM_MAX_BYTES", str(4 * 1024 * 1024)))
 
@@ -418,7 +425,9 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         path = request.url.path
 
         # 1) 请求体上限（仅对带 body 的方法）
-        if request.method in ("POST", "PUT", "PATCH"):
+        #    文件上传路由有自己的体积校验（20 MiB），不能被全局 JSON 上限误伤，
+        #    否则正常论文 PDF 会被拦成 413「请求体过大」。
+        if request.method in ("POST", "PUT", "PATCH") and not _is_upload_path(path):
             cl = request.headers.get("content-length")
             if cl and cl.isdigit() and int(cl) > _MAX_BODY:
                 return JSONResponse({"detail": "请求体过大"}, status_code=413)

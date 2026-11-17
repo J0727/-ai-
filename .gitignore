@@ -25,3 +25,6 @@ cloudflared.exe
 _t_*.json
 _t_*.txt
 
+
+# 演示视频（单独提交，不进仓库）
+docs/*.mp4
