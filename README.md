@@ -101,7 +101,94 @@ DEEPSEEK_API_KEY=你的Key
 
 用浏览器打开 `frontend/index.html`，先「上传文献 PDF」，再进行问答、图谱、综述、写作等操作。后端未启动时前端会自动回退模拟回复。
 
-## 主要接口一览（36 个）
+## 部署到服务器（在线演示）
+
+比赛要求提供「**可公网访问**的在线演示地址」，且**评审期间须保持服务可用**。项目已内置 Docker 配置，推荐用 **Oracle Cloud 永久免费主机**（ARM 4 核 24G，免费额度足够），x86_64 / ARM64 均可。
+
+📖 完整步骤见 **[docs/部署指南.md](docs/部署指南.md)**（含注册、放行端口、对象存储备份、域名 HTTPS）。
+
+> 💳 **没有信用卡？** Oracle 注册必须验证真实信用卡。替代方案见部署指南 **0.5 节**：
+> ① 阿里云高校计划（学生认证送 300 元券，券后 0 元，支付宝即可，选**海外**地域）
+> ② 本机 + Cloudflare 隧道（`scripts/public-demo/start-tunnel.bat`，0 元 0 注册，应急演示）
+
+### 方式一：一键脚本（推荐，Oracle / 任意 Ubuntu）
+
+```bash
+git clone <仓库地址> zhihui && cd zhihui
+bash scripts/oracle/bootstrap.sh     # 装 Docker、建 swap、放行 80/443/8000
+cp .env.example .env && nano .env    # 填入 DEEPSEEK_API_KEY
+bash scripts/oracle/deploy.sh        # 构建 + 启动 + 健康检查 + 演示账号
+PORT=80 bash scripts/oracle/deploy.sh # 想让地址不带 :8000 就用这句
+```
+
+### 方式二：手动 Docker Compose
+
+```bash
+git clone <仓库地址> zhihui && cd zhihui
+cp .env.example .env                 # 填入 DEEPSEEK_API_KEY
+docker compose up -d --build
+docker compose exec zhihui python /app/scripts/init_demo_user.py   # 评审专用账号
+```
+
+启动后访问 `http://<服务器IP>:8000`。
+
+> 前端会自动探测后端地址（同源优先），**服务器部署无需任何额外配置**；本地双击 `index.html` 打开时才回落到 `127.0.0.1:8000`。
+
+### 方式三：直接运行（无 Docker）
+
+```bash
+pip install -r requirements.txt
+export ZHIHUI_DATA_DIR=/opt/zhihui-data      # Windows: set ZHIHUI_DATA_DIR=D:\zhihui-data
+uvicorn main:app --host 0.0.0.0 --port 8000 --app-dir backend
+```
+
+### 数据备份到 Oracle 对象存储
+
+```bash
+bash scripts/oracle/setup-rclone-oci.sh   # 配置 rclone 连接 OCI（一次性）
+bash scripts/oracle/backup-to-oci.sh      # 备份 /data 到存储桶
+bash scripts/oracle/restore-from-oci.sh   # 灾难恢复
+```
+
+配合 crontab 每天自动备份，命令见部署指南第 8 节。
+
+### 环境变量
+
+| 变量 | 必填 | 说明 |
+| ---- | ---- | ---- |
+| `DEEPSEEK_API_KEY` | ✅ | DeepSeek API 密钥（见 `platform.deepseek.com`）|
+| `ZHIHUI_DATA_DIR` | | 用户数据目录。默认 `~/zhihui-data`，Docker 内为 `/data` |
+| `ZHIHUI_FRONTEND_DIR` | | 前端目录。默认自动定位仓库中的 `frontend/` |
+| `ZHIHUI_PORT` | | compose 对外端口，默认 `8000` |
+| `PIP_INDEX_URL` | | 构建期 pip 镜像源，国内建议换清华源 |
+
+完整模板见仓库根目录 `.env.example`。
+
+### 健康检查
+
+```bash
+curl http://127.0.0.1:8000/api/health
+# {"status":"ok","service":"zhihui-yantu","version":"2.0",...}
+```
+
+### 评审演示账号
+
+```bash
+python scripts/init_demo_user.py                        # demo / demo123456
+python scripts/init_demo_user.py --username judge --password 'xxx' --admin
+```
+
+脚本可重复执行；账号已存在时会重置密码。
+
+### 部署注意事项
+
+- **建议使用 HTTPS**：浏览器 Web Crypto API（AES 加密归档）仅在安全上下文可用，`http://公网IP` 下会失效。推荐绑定域名 + Let's Encrypt 证书，或由云厂商提供 HTTPS 反向代理。
+- **数据持久化**：Docker 使用命名卷 `zhihui-data`，`docker compose down` 不丢数据；执行 `docker compose down -v` 才会清空。
+- **端口与防火墙**：Oracle / 阿里云等需**两处**放行——云控制台安全列表 + 主机内部 iptables（Oracle 的 Ubuntu 镜像默认拒绝 22 以外入站）。`scripts/oracle/bootstrap.sh` 已自动处理主机侧，控制台仍需手动加规则。
+- **免费机型**：Oracle Always Free 的 ARM A1（2026 年上限 2 OCPU / 12 GB，早期账号为 4 / 24）最合适；1 GB 的 E2.1.Micro 也能跑，但首次构建慢，脚本会自动创建 2 GB swap。配额以创建页「Always Free-eligible」标签为准。
+- **API 费用**：DeepSeek 按量计费，公开演示建议在控制台设置额度上限，防止被刷。
+
+## 主要接口一览（67 个）
 
 ### 基础与 RAG
 | 方法 | 路径 | 说明 |
@@ -170,11 +257,11 @@ DEEPSEEK_API_KEY=你的Key
 ## 用户数据与隐私（本地优先）
 
 ### 数据目录（按使用者隔离）
-每个使用者拥有独立的个人目录，互不可见：
+每个使用者拥有独立的个人目录，互不可见。目录默认位于用户主目录下的 `zhihui-data`（Windows 为 `C:\Users\<用户名>\zhihui-data`），可通过环境变量 `ZHIHUI_DATA_DIR` 指定到任意位置（如服务器上的 `/data`）。
 
 ```
-E:\智汇研途-用户数据\
-├── users.db                 # SQLite：历史 / 团队 / 文档（按 username 隔离）
+<数据目录>\
+├── users.db                 # SQLite：历史 / 团队 / 课题 / 对话 / 记录（按 username 隔离）
 ├── consent.json             # 全局目录授权记录
 └── users\
     ├── testuser\            # 使用者 A 的个人目录

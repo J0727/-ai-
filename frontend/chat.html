@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="color-scheme" content="light">
+<title>智汇研途 · 严谨对话</title>
+<link rel="stylesheet" href="chat.css">
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- ==================== 左侧栏 ==================== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-logo">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5 28 9v14L16 29.5 4 23V9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="16" cy="16" r="4.2" fill="currentColor"/><path d="M16 6v5.8M16 20.2V26M6.5 10.3l5 2.9M20.5 18.8l5 2.9M25.5 10.3l-5 2.9M11.5 18.8l-5 2.9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </div>
+      <div class="brand-txt"><b>智汇研途</b><span>可核验的科研对话</span></div>
+    </div>
+
+    <button class="new-chat" id="newChat" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      新建对话
+    </button>
+
+    <div class="side-scroll">
+      <div class="side-label">最近对话 <span id="convCount" class="side-count">0</span></div>
+      <div id="convList" class="conv-list"></div>
+
+      <div class="side-label">全部能力 <span id="toolCount" class="side-count">0</span></div>
+      <div id="toolList" class="tool-list"></div>
+    </div>
+
+    <div class="side-foot">
+      <label class="persist">
+        <input type="checkbox" id="persistToggle">
+        <span>本机保存会话记录</span>
+        <em id="persistHint">默认不落盘</em>
+      </label>
+      <div class="sec-mini" id="secMini">
+        <span class="dot"></span><span>安全策略已启用</span>
+        <button type="button" id="secMiniBtn">查看</button>
+      </div>
+      <a class="classic-link" href="classic.html">打开经典工具页
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+      </a>
+    </div>
+  </aside>
+
+  <!-- ==================== 主对话区 ==================== -->
+  <main class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" id="menuBtn" type="button" aria-label="展开侧栏">
+        <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <div class="top-title"><span id="topTitle">新的对话</span><small id="topSub">所有结论均需通过独立复核</small></div>
+      <div class="top-actions">
+        <span class="rigor-pill" title="不可关闭：每条结论都要溯源并复核">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v6c0 4.5-3.2 7.7-8 9-4.8-1.3-8-4.5-8-9V6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m8.8 12 2.2 2.3 4.2-4.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          严谨模式 · 强制溯源
+        </span>
+        <button class="ghost-btn" id="policyBtn" type="button">规则说明</button>
+        <button class="ghost-btn primary-ghost" id="evidenceToggle" type="button">溯源面板</button>
+      </div>
+    </header>
+
+    <div class="thread" id="thread">
+      <section class="welcome" id="welcome">
+        <div class="welcome-logo">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5 28 9v14L16 29.5 4 23V9z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="16" cy="16" r="4" fill="currentColor"/><path d="M16 6v6M16 20v6M6.5 10.3l5 2.9M20.5 18.8l5 2.9M25.5 10.3l-5 2.9M11.5 18.8l-5 2.9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        </div>
+        <h1>你好，我是智汇研途</h1>
+        <p class="welcome-sub">原来分散在 13 个页面里的科研工具，现在都在这一个对话框里。<br>你只管说需求，我来找证据、做复核、给结论。</p>
+
+        <div class="principles">
+          <div class="principle">
+            <div class="p-ico blue"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 9h10M7 13h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+            <b>逐条溯源</b><span>文献带 DOI 与原文链接，译名带国标标准号</span>
+          </div>
+          <div class="principle">
+            <div class="p-ico teal"><svg viewBox="0 0 24 24"><path d="M9 12.5 11 14.5 15.5 9.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></div>
+            <b>独立复核</b><span>换通道重新确认「是否真的存在」，不轻信单次结果</span>
+          </div>
+          <div class="principle">
+            <div class="p-ico violet"><svg viewBox="0 0 24 24"><path d="M12 3 20 6v6c0 4.5-3.2 7.7-8 9-4.8-1.3-8-4.5-8-9V6z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+            <b>一致才显示</b><span>两次答案一致才进结论；不一致的一律公示剔除</span>
+          </div>
+        </div>
+
+        <div class="try-label">试试这样问</div>
+        <div class="examples" id="examples"></div>
+      </section>
+    </div>
+
+    <div class="composer-wrap">
+      <div class="capbar" id="capbar"></div>
+      <div class="composer" id="composer">
+        <button class="attach" id="attachBtn" type="button" title="导入 PDF / TXT（仅本机内存）" aria-label="导入文档">
+          <svg viewBox="0 0 24 24"><path d="M20 11.5 12.4 19a5 5 0 0 1-7.1-7.1l8-8a3.5 3.5 0 0 1 5 5l-8 8a2 2 0 0 1-2.8-2.8l7.3-7.3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <input type="file" id="fileInput" accept=".pdf,.txt,.md,.csv,.tex" hidden>
+        <textarea id="input" rows="1" placeholder="输入研究问题，或直接说：检索文献 / 查术语 / 翻译并核验…" spellcheck="false"></textarea>
+        <button class="send" id="sendBtn" type="button" aria-label="发送">
+          <svg viewBox="0 0 24 24"><path d="M4 12 20 4l-4 16-5-6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m11 14 9-10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="composer-foot">
+        <span id="docChip" class="doc-chip" hidden></span>
+        <span class="foot-tip">回车发送 · Shift + 回车换行 · 上传文档可直接就原文提问</span>
+        <span id="llmState" class="llm-state"></span>
+      </div>
+    </div>
+  </main>
+
+  <!-- ==================== 右侧溯源面板 ==================== -->
+  <aside class="evidence" id="evidencePanel">
+    <div class="ev-head">
+      <div><b>溯源与核验</b><small id="evSub">本轮暂无证据</small></div>
+      <button class="icon-btn" id="evClose" type="button" aria-label="收起">
+        <svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="ev-tabs">
+      <button class="ev-tab active" data-tab="sources" type="button">证据 <span id="tabSrcCount">0</span></button>
+      <button class="ev-tab" data-tab="checks" type="button">复核日志</button>
+      <button class="ev-tab" data-tab="security" type="button">安全配置</button>
+    </div>
+    <div class="ev-body" id="evBody"></div>
+  </aside>
+</div>
+
+<!-- ==================== 规则说明弹窗 ==================== -->
+<div class="modal" id="policyModal" hidden>
+  <div class="modal-mask" data-close="1"></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-label="严谨性与安全性说明">
+    <div class="modal-head"><b>严谨性与安全性说明</b><button class="icon-btn" data-close="1" type="button" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
+    <div class="modal-body" id="policyBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="chat.js"></script>
+</body>
+</html>

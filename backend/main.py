@@ -18,6 +18,7 @@ import time
 import hashlib
 import secrets
 import sqlite3
+import tempfile
 from datetime import datetime
 import requests
 from pypdf import PdfReader
@@ -25,9 +26,10 @@ from pypdf import PdfReader
 # 加载环境变量（无论从哪个目录启动，都定位到 backend/.env）
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
-# ==================== 用户数据目录（E 盘专用文件夹，需用户授权） ====================
-_DEFAULT_DATA_DIR = os.getenv("ZHIHUI_DATA_DIR", r"E:\智汇研途-用户数据")
-_TEMP_DATA_DIR = os.path.join(os.environ.get("TEMP", "."), "zhihui_temp")
+# ==================== 用户数据目录（跨平台，可用 ZHIHUI_DATA_DIR 覆盖） ====================
+_DATA_DIR_ENV = (os.getenv("ZHIHUI_DATA_DIR") or "").strip()
+_DEFAULT_DATA_DIR = _DATA_DIR_ENV or os.path.join(os.path.expanduser("~"), "zhihui-data")
+_TEMP_DATA_DIR = os.path.join(tempfile.gettempdir(), "zhihui_temp")
 _CONSENT_FILE_NAME = "consent.json"
 
 _DATA_DIR = _TEMP_DATA_DIR
@@ -38,6 +40,16 @@ _NEEDS_CONSENT = True
 def _compute_data_paths():
     """根据授权文件决定用户数据的存放位置（未授权时用临时目录）。"""
     global _DATA_DIR, _DB_PATH, _NEEDS_CONSENT
+    # 部署场景：显式指定目录时直接使用，跳过交互式授权
+    if _DATA_DIR_ENV:
+        _DATA_DIR = _DATA_DIR_ENV
+        _NEEDS_CONSENT = False
+        try:
+            os.makedirs(_DATA_DIR, exist_ok=True)
+        except Exception:
+            pass
+        _DB_PATH = os.path.join(_DATA_DIR, "users.db")
+        return
     consent = os.path.join(_DEFAULT_DATA_DIR, _CONSENT_FILE_NAME)
     if os.path.exists(consent):
         _DATA_DIR = _DEFAULT_DATA_DIR
@@ -432,13 +444,20 @@ def _find_subject(sid: str):
 
 app = FastAPI(title="智汇研途 API", version="1.0.0", docs_url=None)
 
-# 允许跨域，前端页面可直接调用
+# 跨域：默认仅同源（最安全）。需要跨域时用 ZHIHUI_TRUSTED_ORIGINS 显式登记白名单，
+# 绝不使用 allow_origins=["*"] + allow_credentials=True 这种会被浏览器拒绝且不安全组合。
+_TRUSTED_ORIGINS = [
+    o.strip().rstrip("/")
+    for o in (os.getenv("ZHIHUI_TRUSTED_ORIGINS") or "").split(",")
+    if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_TRUSTED_ORIGINS,          # 空列表 = 不发 CORS 头，仅同源可调用
+    allow_credentials=bool(_TRUSTED_ORIGINS),
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Content-Type", "X-Zhihui-Session"],
+    max_age=600,
 )
 
 DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
@@ -1182,7 +1201,7 @@ def fetch_arxiv(query: str, max_results: int = 5):
         "sortOrder": "descending",
     }
     try:
-        resp = requests.get("http://export.arxiv.org/api/query", params=params, timeout=20)
+        resp = requests.get("https://export.arxiv.org/api/query", params=params, timeout=20)
         resp.raise_for_status()
         root = ET.fromstring(resp.text)
         ns = {"a": "http://www.w3.org/2005/Atom"}
@@ -1300,6 +1319,7 @@ def verify_citation(req: CitationRequest):
 
 # ==================== 多源文献检索（Crossref / OpenAlex / Europe PMC / DBLP / arXiv） ====================
 from concurrent.futures import ThreadPoolExecutor, as_completed  # noqa: E402
+from concurrent.futures import TimeoutError as FuturesTimeout  # noqa: E402
 
 
 class LiteratureRequest(BaseModel):
@@ -1403,7 +1423,7 @@ def _lit_arxiv(q: str, n: int):
     import xml.etree.ElementTree as ET
 
     resp = requests.get(
-        "http://export.arxiv.org/api/query",
+        "https://export.arxiv.org/api/query",
         params={"search_query": f"all:{q}", "max_results": n},
         timeout=20,
     )
@@ -1426,28 +1446,80 @@ def _lit_arxiv(q: str, n: int):
     return out
 
 
+def _lit_doaj(q: str, n: int):
+    """DOAJ：开放获取期刊目录，多学科、免 key、国内可直连，用来补齐第四个源。"""
+    from urllib.parse import quote as _q
+
+    resp = requests.get(
+        f"https://doaj.org/api/search/articles/{_q(q)}",
+        params={"pageSize": n},
+        headers={"User-Agent": "ZhihuiYantu/2.0 (+academic research assistant)"},
+        timeout=20,
+    )
+    resp.raise_for_status()
+    out = []
+    for it in resp.json().get("results", []):
+        b = it.get("bibjson", {}) or {}
+        doi = ""
+        for ident in b.get("identifier", []) or []:
+            if str(ident.get("type", "")).lower() == "doi":
+                doi = ident.get("id") or ""
+                break
+        links = b.get("link") or []
+        out.append({
+            "source": "DOAJ",
+            "title": b.get("title") or "",
+            "authors": ", ".join(
+                a.get("name", "") for a in (b.get("author") or [])[:5] if isinstance(a, dict)
+            ),
+            "year": str(b.get("year") or ""),
+            "doi": doi,
+            "url": (links[0].get("url") if links and isinstance(links[0], dict) else "")
+                   or (f"https://doi.org/{doi}" if doi else ""),
+        })
+    return out
+
+
 _LIT_SOURCES = {
     "Crossref": _lit_crossref,
     "OpenAlex": _lit_openalex,
     "Europe PMC": _lit_europepmc,
-    "arXiv": _lit_arxiv,
+    "DOAJ": _lit_doaj,
 }
+
+# arXiv 在内地云机房对 443 直连被阻断（实测阿里云上海 25s 超时，容器内还会吃 429），
+# 默认不启用；海外机器可设 ZHIHUI_ENABLE_ARXIV=1 把它加回来。
+if os.getenv("ZHIHUI_ENABLE_ARXIV", "").strip().lower() in ("1", "true", "yes"):
+    _LIT_SOURCES["arXiv"] = _lit_arxiv
+
+_LIT_DEADLINE = 12  # 秒：国内直连国际学术站延迟抖动大（实测 0.6~9s），单源卡住时先返回已拿到的结果
 
 
 @app.post("/api/literature-search", response_model=LiteratureResponse)
 def literature_search(req: LiteratureRequest):
-    """并行检索多个权威文献库，合并结果。"""
-    results = []
-    ok, fail = [], []
-    with ThreadPoolExecutor(max_workers=len(_LIT_SOURCES)) as ex:
-        futures = {ex.submit(fn, req.query, req.limit): name for name, fn in _LIT_SOURCES.items()}
-        for fut in as_completed(futures):
+    """并行检索多个权威文献库，合并结果。
+
+    带整体截止时间（_LIT_DEADLINE）：任一单源卡住都不会把整页拖到 20 秒超时，
+    超时的源记入 sources_fail，已返回的结果照常展示。
+    """
+    results, ok, fail = [], [], []
+    ex = ThreadPoolExecutor(max_workers=len(_LIT_SOURCES))
+    futures = {ex.submit(fn, req.query, req.limit): name for name, fn in _LIT_SOURCES.items()}
+    done = set()
+    try:
+        for fut in as_completed(futures, timeout=_LIT_DEADLINE):
             name = futures[fut]
+            done.add(name)
             try:
                 results.extend(fut.result())
                 ok.append(name)
             except Exception:
                 fail.append(name)
+    except FuturesTimeout:
+        pass
+    finally:
+        ex.shutdown(wait=False, cancel_futures=True)
+    fail.extend(n for n in _LIT_SOURCES if n not in done and n not in fail)
     return LiteratureResponse(query=req.query, results=results, sources_ok=ok, sources_fail=fail)
 
 
@@ -1480,13 +1552,18 @@ def library_search(req: LibSearchRequest):
     qvec = _hash_embed(query)
 
     raw = []
-    with ThreadPoolExecutor(max_workers=len(_LIT_SOURCES)) as ex:
-        futures = {ex.submit(fn, query, req.limit): name for name, fn in _LIT_SOURCES.items()}
-        for fut in as_completed(futures):
+    ex = ThreadPoolExecutor(max_workers=len(_LIT_SOURCES))
+    futures = {ex.submit(fn, query, req.limit): name for name, fn in _LIT_SOURCES.items()}
+    try:
+        for fut in as_completed(futures, timeout=_LIT_DEADLINE):
             try:
                 raw.extend(fut.result())
             except Exception:
                 pass
+    except FuturesTimeout:
+        pass
+    finally:
+        ex.shutdown(wait=False, cancel_futures=True)
 
     results = []
     for it in raw:
@@ -1594,7 +1671,7 @@ def _plag_arxiv(qvec, query, kw, limit=5):
     import xml.etree.ElementTree as ET
 
     resp = requests.get(
-        "http://export.arxiv.org/api/query",
+        "https://export.arxiv.org/api/query",
         params={"search_query": f"all:{query}", "max_results": limit},
         timeout=15,
     )
@@ -2019,7 +2096,7 @@ def subject_literature(sid: str):
         import xml.etree.ElementTree as ET
 
         r = requests.get(
-            "http://export.arxiv.org/api/query",
+            "https://export.arxiv.org/api/query",
             params={"search_query": f"all:{keyword}", "max_results": 6, "sortBy": "relevance"},
             timeout=20,
         )
@@ -2147,7 +2224,7 @@ def article_detail(req: ArticleDetailRequest):
         if m:
             try:
                 r = requests.get(
-                    "http://export.arxiv.org/api/query",
+                    "https://export.arxiv.org/api/query",
                     params={"id_list": m.group(1)},
                     timeout=20,
                 )
@@ -3104,3 +3181,72 @@ def analyze_paper(req: AnalyzeRequest):
     )
     result = call_deepseek(prompt, 0.3, "")
     return AnalyzeResponse(analysis=result["answer"], model=result["model"])
+
+# ==================== 健康检查（部署平台探活用） ====================
+@app.get("/api/health")
+def health():
+    """供服务器/容器平台探活与人工检查。"""
+    return {
+        "status": "ok",
+        "service": "zhihui-yantu",
+        "version": "2.0",
+        "data_dir": _DATA_DIR,
+        "db": os.path.basename(_DB_PATH),
+    }
+
+
+# ==================== 对话版：严谨性内核 + 安全层 + 统一能力编排 ====================
+# 这些模块与旧接口共存：13 个工具页与全部 /api/* 旧路由保持可用，
+# 新对话应用走 /api/v2/*，并把 "/" 指向对话首页。
+import sys as _sys
+
+_BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+if _BACKEND_DIR not in _sys.path:
+    _sys.path.insert(0, _BACKEND_DIR)
+
+try:
+    from security import SecurityMiddleware, security_status as _security_status
+    from conversation import router as _conversation_router
+
+    app.include_router(_conversation_router)
+    # 最后添加的中间件位于最外层：统一注入安全头 / 限流 / 请求体上限
+    app.add_middleware(SecurityMiddleware)
+
+    @app.get("/api/v2/health", include_in_schema=False)
+    def conversation_health():
+        return {"status": "ok", "rigor": "strict", "security": _security_status()["csp"]}
+
+except Exception as _conv_err:  # 缺少依赖时降级：旧版仍可正常使用，不影响部署
+    print("[warn] 对话模块未加载:", _conv_err)
+
+
+# ==================== 前端静态托管（必须放在所有 API 路由之后） ====================
+_FRONTEND_DIR = os.getenv(
+    "ZHIHUI_FRONTEND_DIR",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend"),
+)
+
+# 对话式首页：显式注册在 mount("/") 之前，因此 "/" 优先命中这里；
+# 原工具页版完整保留在 /classic.html 与 /index.html。
+try:
+    from fastapi.responses import FileResponse
+
+    @app.get("/", include_in_schema=False)
+    def conversation_home():
+        chat_page = os.path.join(_FRONTEND_DIR, "chat.html")
+        if os.path.isfile(chat_page):
+            return FileResponse(chat_page, headers={"Cache-Control": "no-cache"})
+        return FileResponse(os.path.join(_FRONTEND_DIR, "index.html"))
+
+except Exception as _home_err:
+    print("[warn] 对话首页未注册:", _home_err)
+
+if os.path.isdir(_FRONTEND_DIR):
+    try:
+        from fastapi.staticfiles import StaticFiles
+
+        app.mount("/", StaticFiles(directory=_FRONTEND_DIR, html=True), name="web")
+    except Exception as _e:
+        print("[warn] 前端静态托管失败:", _e)
+else:
+    print("[warn] 未找到前端目录:", _FRONTEND_DIR)

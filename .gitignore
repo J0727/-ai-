@@ -15,4 +15,13 @@ chroma_data/
 
 # 用户数据库
 *.db
+*.sqlite3
+
+# 隧道客户端二进制（约 55MB，用脚本自动下载）
+scripts/bin/
+cloudflared.exe
+
+# 本地联调产生的临时报文
+_t_*.json
+_t_*.txt
 

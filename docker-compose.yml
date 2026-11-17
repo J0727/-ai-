@@ -1,0 +1,30 @@
+services:
+  zhihui:
+    build:
+      context: .
+      args:
+        # 国内网络把这里改成镜像源，构建会快很多：
+        # https://pypi.tuna.tsinghua.edu.cn/simple
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
+    image: zhihui-yantu:2.0
+    container_name: zhihui-yantu
+    restart: unless-stopped
+    ports:
+      # 左侧是「对外端口」，可用 PORT=80 bash scripts/oracle/deploy.sh 改成 80
+      - "${ZHIHUI_PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      - ZHIHUI_DATA_DIR=/data
+      - TZ=Asia/Shanghai
+    volumes:
+      - zhihui-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  zhihui-data:

@@ -646,7 +646,7 @@
                         </div>
                         <span class="step-status text-xs text-blue-500">进行中</span>
                     </div>
-                    <p class="text-xs text-slate-500 mb-2">正在从 arXiv, PubMed 检索相关文献...</p>
+                    <p class="text-xs text-slate-500 mb-2">正在从 Crossref、OpenAlex、Europe PMC、DOAJ 并行检索…</p>
                     <div class="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
                         <div class="step-bar h-full bg-blue-500 w-1/3"></div>
                     </div>
@@ -719,7 +719,8 @@
                 </div>
                 <div>
                     <label class="text-sm font-medium text-slate-600 block mb-1">后端 API 地址</label>
-                    <input id="apiBaseInput" type="text" value="http://127.0.0.1:8000" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500">
+                    <input id="apiBaseInput" type="text" value="" placeholder="留空自动探测（服务器部署无需填写）" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500">
+                    <p class="text-[11px] text-slate-400 mt-1">服务器部署时留空即可，自动跟随当前访问地址；本地双击打开则填 http://127.0.0.1:8000</p>
                 </div>
             </div>
             <div class="flex justify-end gap-2 mt-6">
@@ -1097,11 +1098,11 @@
                     当前已用到的外部服务（仅发送必要内容，不发送账号信息）：
                     <ul class="list-disc ml-5 mt-1 space-y-0.5">
                         <li>DeepSeek API：用于问答/翻译/生成（内容会被发送用于推理）</li>
-                        <li>OpenAlex / arXiv / Crossref 等：用于文献检索（仅发送检索词）</li>
+                        <li>OpenAlex / Crossref / Europe PMC / DOAJ：用于文献检索（仅发送检索词）</li>
                     </ul>
                 </div>
                 <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1">
-                    <div class="font-semibold text-slate-700">个人数据目录（本机 E 盘）</div>
+                    <div class="font-semibold text-slate-700">个人数据目录（本机）</div>
                     <div id="privacyDir" class="font-mono text-[11px] text-slate-600 break-all">—</div>
                     <div id="privacyConsent" class="text-slate-500"></div>
                     <div id="privacyStats" class="text-slate-600"></div>
@@ -1124,7 +1125,7 @@
                     <div id="archiveInfo" class="text-[11px] text-slate-500"></div>
                 </div>
                 <div class="flex flex-wrap gap-2 pt-1">
-                    <button id="privacyGrant" class="px-3 py-1.5 text-xs bg-purple-600 text-white rounded-lg hover:bg-purple-700">授权使用 E 盘目录</button>
+                    <button id="privacyGrant" class="px-3 py-1.5 text-xs bg-purple-600 text-white rounded-lg hover:bg-purple-700">授权使用本地目录</button>
                     <button id="privacyRevoke" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg hover:bg-slate-50">撤销授权</button>
                     <button id="privacyClearTrans" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg hover:bg-slate-50">清空翻译缓存</button>
                     <button id="privacyClearAll" class="px-3 py-1.5 text-xs bg-white border border-red-300 text-red-600 rounded-lg hover:bg-red-50">清空本机全部数据</button>
@@ -1140,7 +1141,7 @@
             <h3 class="text-base font-bold text-slate-800 mb-2"><i class="fa-solid fa-shield-halved mr-2 text-purple-600"></i>用户数据存储授权</h3>
             <p class="text-sm text-slate-600 leading-relaxed mb-2">为保护隐私，本软件计划在您的电脑上创建专用数据文件夹，用于保存账号、浏览记录与团队文档：</p>
             <p id="consentUser" class="text-xs text-purple-700 mb-1">使用者：—</p>
-            <p class="font-mono text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 mb-2 break-all">E:\智汇研途-用户数据\users\&lt;使用者&gt;</p>
+            <p id="consentPath" class="font-mono text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 mb-2 break-all">zhihui-data\users\&lt;使用者&gt;</p>
             <p class="text-xs text-slate-500 leading-relaxed mb-3">该文件夹的访问权限将收紧为「当前用户 + 系统账户」，其他用户无法访问；数据不会上传云端。</p>
             <div class="flex gap-2">
                 <button id="consentYes" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-sm">同意并创建</button>
@@ -1400,7 +1401,7 @@
 
         // ==================== 真实 API 调用 ====================
         async function callRealApi(question) {
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             try {
                 const ctrl = new AbortController();
                 const timer = setTimeout(() => ctrl.abort(), 15000);
@@ -1556,7 +1557,7 @@
         });
 
         async function uploadPdf(file) {
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             addMessage('ai', `正在上传并解析「${file.name}」...`);
             const fd = new FormData();
             fd.append('file', file);
@@ -1582,7 +1583,7 @@
         });
 
         async function generateOutline(topic) {
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             addMessage('user', `请为「${topic}」生成论文大纲`);
             const loading = addTypingIndicator();
             try {
@@ -1610,7 +1611,7 @@
         });
 
         async function generateSurvey(topic) {
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             addMessage('user', `请为「${topic}」生成文献综述`);
             const loading = addTypingIndicator();
             try {
@@ -1639,7 +1640,7 @@
         graphBtn.addEventListener('click', showGraph);
 
         async function showGraph() {
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             graphModal.classList.remove('hidden');
             graphModal.classList.add('flex');
             const info = document.getElementById('graphInfo');
@@ -1705,7 +1706,7 @@
         });
 
         async function translateText(text) {
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             const target = /[\u4e00-\u9fa5]/.test(text) ? 'en' : 'zh';
             addMessage('user', `请翻译：${text.slice(0, 60)}${text.length > 60 ? '...' : ''}`);
             const loading = addTypingIndicator();
@@ -1753,7 +1754,7 @@
         });
 
         async function visualizeCsv(csv) {
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             addMessage('user', '请根据 CSV 生成图表');
             const loading = addTypingIndicator();
             try {
@@ -1794,7 +1795,7 @@
         });
 
         async function searchArxiv(query) {
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             addMessage('user', `请检索 arXiv：${query}`);
             const loading = addTypingIndicator();
             try {
@@ -1823,7 +1824,7 @@
         });
 
         async function generateLatex(csv) {
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             addMessage('user', '请把 CSV 转成 LaTeX 表格');
             const loading = addTypingIndicator();
             try {
@@ -1869,7 +1870,7 @@
         });
 
         async function polishText(text) {
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             addMessage('user', `请润色：${text.slice(0, 60)}${text.length > 60 ? '...' : ''}`);
             const loading = addTypingIndicator();
             try {
@@ -1896,7 +1897,7 @@
         });
 
         async function verifyCitation(citation) {
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             addMessage('user', `请校验文献：${citation}`);
             const loading = addTypingIndicator();
             try {
@@ -1976,7 +1977,7 @@
         });
 
         async function searchLiterature(query) {
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             addMessage('user', `请检索文献：${query}`);
             _record('search', `文献检索：${query}`, '', '');
             const loading = addTypingIndicator();
@@ -2039,7 +2040,7 @@
             const target = document.getElementById('mlLang').value;
             const out = document.getElementById('mlResult');
             if (!text) { out.textContent = '请输入要翻译的文本'; return; }
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             out.textContent = '翻译中...';
             try {
                 const resp = await fetch(`${apiBase}/api/translate`, {
@@ -2231,7 +2232,7 @@
                 try { localStorage.setItem('zhihui_lang', 'zh'); } catch (e) {}
                 return;
             }
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             const nodes = collectTextNodes();
             nodes.forEach(n => { if (!_origTexts.has(n)) _origTexts.set(n, n.textContent); });
             const placeholders = Array.from(document.querySelectorAll('[placeholder]'));
@@ -2272,7 +2273,7 @@
         async function translateTexts(texts, target) {
             if (!texts || !texts.length) return texts || [];
             if (!target || target === 'zh') return texts;
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             const cache = _transCache[target] || {};
             const uniq = [...new Set(texts.filter(t => t && !cache[t]))];
             if (uniq.length) {
@@ -2300,7 +2301,7 @@
         // 文献内容翻译（不限目标语言，含英→中），独立缓存命名空间
         async function translateTo(texts, target) {
             if (!texts || !texts.length) return texts || [];
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             const cacheKey = 'L:' + target;
             const cache = _transCache[cacheKey] || {};
             const uniq = [...new Set(texts.filter(t => t && !cache[t]))];
@@ -2390,7 +2391,7 @@
             if (!file) return;
             const out = document.getElementById('plagResult');
             out.textContent = `正在解析 ${file.name}…`;
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             const fd = new FormData();
             fd.append('file', file);
             try {
@@ -2411,7 +2412,7 @@
             const out = document.getElementById('plagResult');
             if (!text || text.length < 20) { out.textContent = '请至少输入 20 字'; return; }
             if (text.length > 100000) { out.textContent = `超出上限：最高支持 10 万字（当前 ${text.length} 字），请删减后再查`; return; }
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             out.textContent = `比对中（${text.length} 字，正在与 8 个开放文献库比对）…`;
             try {
                 const resp = await fetch(`${apiBase}/api/plagiarism-check`, {
@@ -2563,7 +2564,7 @@
         async function doLibSearch() {
             const q = document.getElementById('libSearch').value.trim();
             if (!q) return;
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             const box = document.getElementById('subjectItems');
             document.getElementById('subjectChips').innerHTML = '';
             box.innerHTML = '<p class="text-sm text-slate-400">搜索中…</p>';
@@ -2597,7 +2598,7 @@
         }
 
         async function loadSubjects() {
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             const list = document.getElementById('subjectList');
             list.innerHTML = '<p class="text-xs text-slate-400">加载中…</p>';
             try {
@@ -2637,7 +2638,7 @@
         }
 
         async function loadSubjectLiterature(subj, displayName) {
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             const box = document.getElementById('subjectItems');
             const name = displayName || subj.name;
             const loadingLabel = (await translateTexts(['正在加载文献…'], currentLang))[0];
@@ -2695,7 +2696,7 @@
 
         let _litInited = false;        async function openLitDetail(it, subj) {
             const modal = document.getElementById('litModal');
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             modal.classList.remove('hidden');
             modal.classList.add('flex');
 
@@ -2795,7 +2796,7 @@
         });
 
         async function loadHistory() {
-            const apiBase = (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const apiBase = _api();
             const box = document.getElementById('subjectHistory');
             let username = 'guest';
             try { username = localStorage.getItem('zhihui_user') || 'guest'; } catch (e) {}
@@ -2846,9 +2847,42 @@
         let _curTeam = null;
         let _curDocId = null;
 
+        // ==================== 后端地址：自动探测 ====================
+        // 兼容四种打开方式：
+        //   1) 云服务器访问 http(s)://域名  → 同源（由后端托管前端）
+        //   2) 云服务器访问 http://IP:8000  → 同源
+        //   3) 本地双击 index.html（file://）→ 127.0.0.1:8000
+        //   4) 用 VS Code Live Server 等静态服务器打开前端 → 探测后自动指向 8000
+        const API_FALLBACK = 'http://127.0.0.1:8000';
+        let _apiBase = null;
+
         function _api() {
-            return (document.getElementById('apiBaseInput')?.value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+            const v = (document.getElementById('apiBaseInput')?.value || '').trim();
+            if (v) return v.replace(/\/+$/, '');   // 设置里手动填过，优先
+            if (_apiBase) return _apiBase;          // 探测完成
+            if (location.protocol === 'http:' || location.protocol === 'https:') {
+                return location.origin;
+            }
+            return API_FALLBACK;
         }
+
+        (async function detectApiBase() {
+            const cands = [];
+            if (location.protocol === 'http:' || location.protocol === 'https:') cands.push(location.origin);
+            if (!cands.includes(API_FALLBACK)) cands.push(API_FALLBACK);
+            for (const c of cands) {
+                try {
+                    const ctl = new AbortController();
+                    const timer = setTimeout(() => ctl.abort(), 2000);
+                    const r = await fetch(c + '/api/health', { signal: ctl.signal, cache: 'no-store' });
+                    clearTimeout(timer);
+                    if (r.ok) { _apiBase = c; break; }
+                } catch (e) { /* 试下一个 */ }
+            }
+            const el = document.getElementById('apiBaseInput');
+            if (el && !el.value) el.value = _apiBase || API_FALLBACK;
+        })();
+
         function _uname() {
             try { return localStorage.getItem('zhihui_user') || 'guest'; } catch (e) { return 'guest'; }
         }
@@ -3357,7 +3391,7 @@
         document.getElementById('consentNo').addEventListener('click', () => setConsent(false));
         document.getElementById('privacyGrant').addEventListener('click', () => setConsent(true));
         document.getElementById('privacyRevoke').addEventListener('click', () => {
-            if (!confirm('撤销授权后，新数据将写入临时目录（E 盘已存数据保留）。确定撤销？')) return;
+            if (!confirm('撤销授权后，新数据将写入临时目录（已存数据保留）。确定撤销？')) return;
             setConsent(false);
         });
 
