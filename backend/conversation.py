@@ -566,11 +566,26 @@ def _extract_term_text(msg: str) -> str:
 
 
 def _extract_translate_text(msg: str) -> str:
-    m = re.search(r"(?:把|将|翻译|译成|译作)[:：]?\s*(.+)", msg)
-    t = (m.group(1) if m else msg).strip()
-    t = re.sub(r"(译成|翻译(成|为)?)(英语|英文|中文|日语|法语|德语|韩语|西班牙语|俄语)", "", t)
-    t = re.sub(r"并(核验|检查|校验).*$", "", t).strip(" ：:,，。")
-    return clean_text(t, 3000) or clean_text(msg, 3000)
+    """从自然语言指令里取出真正要翻译的正文。
+
+    旧实现用 `(?:把|将|翻译|译成|译作)...(.+)` 抓第一段，遇到
+    「把这句话译成英语并核验：<正文>」时会把「这句话」当成正文。
+    这里改为：先判断冒号前缀是不是一句短指令，是则取冒号之后的全部内容。
+    """
+    s = msg.strip()
+    m = re.search(r"[:：]", s)
+    if m:
+        prefix = s[: m.start()].strip()
+        if len(prefix) <= 24 and re.search(r"译|翻译|把|将|核验|润色", prefix):
+            s = s[m.end():].strip()
+    s = re.sub(r"并(核验|检查|校验).*$", "", s).strip()
+    s = re.sub(
+        r"(请|帮我|帮我把|把|将)?(这段话|这段文字|这句话|这句|以下内容|下面这段)?"
+        r"(译成|翻译成|译为|翻译为|翻译)\s*(英语|英文|中文|日语|法语|德语|韩语|西班牙语|俄语)?",
+        "",
+        s,
+    ).strip(" ：:,，。")
+    return clean_text(s, 3000) or clean_text(msg, 3000)
 
 
 # ---------------------------------------------------------------- 融合能力：接上经典版的本地/检索型工具

@@ -712,14 +712,53 @@ def _term_items(payload: dict) -> list[dict]:
 
 
 def extract_terms(text: str, limit: int = 6) -> list[str]:
-    """从输入里抽取待核验的术语；短输入整体视作术语。"""
+    """从输入里抽取待核验的术语。
+
+    旧实现用 `[\\u4e00-\\u9fff]{2,10}` 直接扫中文，会把「……基于注意力机制……」这类
+    长串按 10 字硬切成「基于注」「意力机制」这种半词，导致术语库必然查不到、
+    整段译文被连坐拒绝。这里改为：
+      1) 短输入（≤30 字且无句读）整体视作一个术语；
+      2) 长输入优先让模型抽词，且**只保留确实出现在原文里的片段**（杜绝模型臆造）；
+      3) 模型不可用时，只取被标点/空白完整包围的 2~6 字中文串，绝不做跨词截断。
+    """
     s = clean_text(text, 3000)
-    if len(s) <= 30 and not re.search(r"[。！？.!?；;]", s):
+    # 只有「短且像术语」才整体视作术语；12 字以内是中文术语的常见上限，
+    # 放得太宽（原来 30）会把整句当成术语，导致术语库必然查不到。
+    if len(s) <= 12 and not re.search(r"[。！？.!?；;，,]", s):
         return [s]
-    cn = re.findall(r"[\u4e00-\u9fff]{2,10}", s)
-    en = re.findall(r"\b[A-Za-z][A-Za-z\-]{2,24}(?:\s+[A-Za-z][A-Za-z\-]{2,24}){0,2}\b", s)
+
+    cands: list[str] = []
+    try:
+        if llm_available():
+            raw = llm_complete(
+                "Extract up to 5 domain-specific technical terms that appear literally in the "
+                "fenced DATA. Output one term per line, no numbering, no punctuation, no notes.",
+                s,
+                temperature=0.0,
+                timeout=15,
+            )
+            for line in (raw or "").splitlines():
+                t = line.strip().strip("-*•· \t").strip()
+                if not (2 <= len(t) <= 40 and t in s):
+                    continue
+                # 术语不能是整句：中文术语一般不超过 12 字，且不应含句读
+                if re.search(r"[，。！？；,.!?;]", t):
+                    continue
+                if re.search(r"[\u4e00-\u9fff]", t) and len(re.sub(r"\s", "", t)) > 12:
+                    continue
+                cands.append(t)
+    except Exception:
+        pass
+
+    if not cands:
+        for clause in re.split(r"[，。！？；、,.!?;\s（）()\[\]【】「」“”\"'/]+", s):
+            for run in re.findall(r"[\u4e00-\u9fff]+", clause):
+                if 2 <= len(run) <= 6:
+                    cands.append(run)
+        cands += re.findall(r"\b[A-Za-z][A-Za-z\-]{2,24}(?:\s+[A-Za-z][A-Za-z\-]{2,24}){0,2}\b", s)
+
     seen, out = set(), []
-    for t in cn + en:
+    for t in cands:
         k = norm_text(t)
         if k and k not in seen and len(k) >= 2:
             seen.add(k)
@@ -816,25 +855,48 @@ def _split_segments(text: str) -> list[str]:
 
 
 def _translate_twice(text: str, target: str) -> tuple[list[str], list[str], bool]:
-    """两次彼此独立、无共享上下文的低温翻译，返回 (A译文分句, B译文分句, 是否可用)。"""
-    framings = [
-        ("You are a scientific translation engine. Translate the fenced DATA into "
-         f"{target} using standard academic terminology. Output ONLY the translation, "
-         "no notes, no markdown, preserve sentence count and order."),
-        ("Act as an independent academic language reviewer. Render the fenced DATA into "
-         f"{target} literally and conservatively. Output ONLY the translated text, "
-         "same number of sentences, no commentary."),
-    ]
-    outs = []
-    for sys_prompt in framings:
-        try:
-            outs.append(clean_text(llm_complete(sys_prompt, text, temperature=0.0), 6000))
-        except Exception:
-            outs.append("")
-            break  # A 通道失败即无需再调 B：省一次无效外网请求
-    if len(outs) < 2 or not all(outs):
+    """两次彼此独立、无共享上下文的低温翻译，返回 (A译文分句, B译文分句, 是否可用)。
+
+    关键点：两条通道执行的是**同一个任务**，独立性来自「分开调用、不共享上下文」，
+    而不是「用不同口径」。若让 A 走学术意译、B 走保守直译，两者天然不同，
+    再要求 90% 相似度必然全部判为冲突，严谨性就退化成了「永远不给结果」。
+
+    - 通道 A：逐句单独翻译（句与句之间没有上下文）
+    - 通道 B：整篇一次性翻译后切分
+    同一任务下的两次独立运行，若结果一致，才说明输出稳定、可复现。
+    """
+    segs = _split_segments(text)[:8]
+    sys_prompt = (
+        "You are a scientific translation engine. Translate the fenced DATA into "
+        f"{target} using standard academic terminology. "
+        "Output ONLY the translation, no notes, no markdown, no explanations."
+    )
+
+    # 通道 A：逐句独立翻译
+    a: list[str] = []
+    try:
+        for seg in segs:
+            out = clean_text(
+                llm_complete(sys_prompt + " Translate exactly one sentence.", seg, temperature=0.0),
+                2000,
+            )
+            if not out:
+                raise RuntimeError("empty")
+            a.append(out)
+    except Exception:
+        a = []
+
+    # 通道 B：整篇一次性翻译，再切分
+    b: list[str] = []
+    try:
+        whole = clean_text(llm_complete(sys_prompt, text, temperature=0.0), 6000)
+        b = _split_segments(whole)[:len(segs)] if segs else []
+    except Exception:
+        b = []
+
+    if not a or not b:
         return [], [], False
-    return _split_segments(outs[0]), _split_segments(outs[1]), True
+    return a, b, True
 
 
 def _back_translation_check(original: list[str], translated: list[str]) -> dict:
@@ -881,7 +943,10 @@ def verify_translation(text: str, target: str = "英语") -> dict:
         for i in range(n):
             sim = similarity(a[i], b[i])
             agree = sim >= 0.90
-            if agree and back.get("verdict") == "conflict":
+            # 回译只作「严重偏离」时的否决通道：Jaccard 对同义改写本身就很敏感，
+            # 若只要回译不完全一致就否决，等于把正确的同义译法一并枪毙。
+            back_score = float(back.get("similarity") or 0.0)
+            if agree and back.get("verdict") == "conflict" and back_score < 0.25:
                 agree = False
             checks = [
                 {"channel": "独立翻译 A（学术译法）", "verdict": "agree" if agree else "conflict",
